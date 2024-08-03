@@ -11,7 +11,7 @@ import requests
 import json
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-table_cols = ['month', 'town', 'housing_type', 'street_name', 'storey_range',
+table_cols = ['month', 'town', 'housing', 'street_name', 'storey_range',
               'lease_left', 'area_sqm', 'area_sqft', 'price_sqm',
               'price_sqft', 'price']
 
@@ -62,7 +62,7 @@ if api_calls:
     df['lease_mths'] = [i.replace(" years", 'y') for i in df['lease_mths']]
     df['lease_mths'] = [i.replace(" months", 'm') for i in df['lease_mths']]
     df['street_name'] = "BLK " + df['block'] + " " + df['street_name']
-    df.rename(columns={'flat': 'housing_type', 'lease_mths': 'lease_left'},
+    df.rename(columns={'flat': 'housing', 'lease_mths': 'lease_left'},
               inplace=True)
     df = df[table_cols]
 
@@ -78,7 +78,7 @@ else:
     df['price_sqm'] = [round(i, 2) for i in df['price'] / df['area_sqm']]
     df['price_sqft'] = [round(i, 2) for i in df['price'] / df['area_sqft']]
 
-    df.rename(columns={'flat': 'housing_type', 'lease_mths': 'lease_left'},
+    df.rename(columns={'flat': 'housing', 'lease_mths': 'lease_left'},
               inplace=True)
     df = df[table_cols]
 
@@ -93,7 +93,7 @@ towns = df.town.unique().tolist()
 towns.sort()
 towns = ["All",] + towns
 
-flat_type_grps = df["housing_type"].unique().tolist()
+flat_type_grps = df["housing"].unique().tolist()
 flat_type_grps.sort()
 
 # Data processing for visualisations
@@ -124,7 +124,7 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     selected_mths = selected_mths[-int(month):]
 
     fdf = fdf[fdf.month.isin(selected_mths)]
-    fdf = fdf[fdf.housing_type.isin(flat)]
+    fdf = fdf[fdf.housing.isin(flat)]
     fdf['lease_yrs'] = [int(i.split("y")[0]) for i in fdf['lease_left']]
     if min_lease:
         fdf = fdf[fdf.lease_yrs <= int(min_lease)]
@@ -212,10 +212,11 @@ app.layout = html.Div([
             width="auto"
         ),
         dbc.Col(
-            html.P(
-                id="dynamic-text",
-                style={"textAlign": "center", "padding-top": "10px"}
-            ),
+            dcc.Loading([
+                html.P(
+                    id="dynamic-text",
+                    style={"textAlign": "center", "padding-top": "10px"}
+                )]),
             width="auto"
         ),
         dbc.Col(
@@ -405,7 +406,6 @@ app.layout = html.Div([
                         ],
                         rowData=df[table_cols].to_dict("records"),
                         className="ag-theme-balham",
-                        # columnSize="sizeToFit",
                         columnSize="responsiveSizeToFit",
                         dashGridOptions={
                             "pagination": True,
@@ -622,7 +622,7 @@ def update_g1(n_clicks, month, town, flat, area_type, max_area, min_area,
     return fig
 
 
-@app.callback(
+@callback(
     Output("collapse", "is_open"),
     [Input("collapse-button", "n_clicks")],
     [State("collapse", "is_open")],
@@ -633,7 +633,7 @@ def toggle_collapse(n, is_open):
     return is_open
 
 
-@app.callback(
+@callback(
     Output("caveats", "is_open"),
     [Input("collapse-caveats", "n_clicks")],
     [State("caveats", "is_open")],
