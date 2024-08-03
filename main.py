@@ -15,11 +15,17 @@ templates = Jinja2Templates(directory='templates')
 
 
 @app.get("/")
-def index():
-    return "Go ~/housing or ~/location_map [ WIP ] to see our property apps"
-
-
-@app.get("/public_housing", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse("house_dash.html",
-                                      {"request": request})
+    return templates.TemplateResponse(
+        "house_dash.html", {"request": request})
+
+
+# @app.get("/")
+# def index():
+#     return "Go ~/housing or ~/location_map [ WIP ] to see our property apps"
+
+
+# @app.get("/public_housing", response_class=HTMLResponse)
+# async def read_root(request: Request):
+#     return templates.TemplateResponse("house_dash.html",
+#                                       {"request": request})
