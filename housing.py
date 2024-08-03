@@ -51,16 +51,16 @@ if api_calls:
     df['price'] = df['price'].astype(np.float32)
 
     df = df[df['month'] >= '2024-01']
-    df['area_sq_ft'] = [round(i, 2) for i in df['area_sqm'] * 10.7639]
+    df['area_sqft'] = [round(i, 2) for i in df['area_sqm'] * 10.7639]
     df['price_sq_m'] = [round(i, 2) for i in df['price'] / df['area_sqm']]
-    df['price_sq_ft'] = [round(i, 2) for i in df['price'] / df['area_sq_ft']]
+    df['price_sqft'] = [round(i, 2) for i in df['price'] / df['area_sq_ft']]
 
     df['lease_mths'] = [i.replace("years", 'yrs') for i in df['lease_mths']]
     df['lease_mths'] = [i.replace("months", 'mths') for i in df['lease_mths']]
 
     df = df[['month', 'town', 'flat', 'block', 'street_name', 'storey_range',
-             'lease_mths', 'area_sqm', 'area_sq_ft', 'price_sq_m',
-             'price_sq_ft', 'price']]
+             'lease_mths', 'area_sqm', 'area_sqft', 'price_sq_m',
+             'price_sqft', 'price']]
 
     print("Completed data extraction from data.gov.sg")
 
@@ -69,14 +69,14 @@ else:
     df = pd.read_csv("data/local_df.csv")
     df.rename(columns={'area': 'area_sqm'}, inplace=True)
     df = df[df['month'] >= '2024-01']
-    df['area_sq_ft'] = [round(i, 2) for i in df['area_sqm'] * 10.7639]
+    df['area_sqft'] = [round(i, 2) for i in df['area_sqm'] * 10.7639]
 
     df['price_sq_m'] = [round(i, 2) for i in df['price'] / df['area_sqm']]
-    df['price_sq_ft'] = [round(i, 2) for i in df['price'] / df['area_sq_ft']]
+    df['price_sqft'] = [round(i, 2) for i in df['price'] / df['area_sq_ft']]
 
     df = df[['month', 'town', 'flat', 'block', 'street_name', 'storey_range',
-             'lease_mths', 'area_sqm', 'area_sq_ft', 'price_sq_m',
-             'price_sq_ft', 'price']]
+             'lease_mths', 'area_sqm', 'area_sqft', 'price_sq_m',
+             'price_sqft', 'price']]
 
 # Initalise App
 app = Dash(
@@ -104,8 +104,8 @@ area_max, area_min = df["area_sqm"].max(), df["area_sqm"].min()
 legend = dict(orientation="h", yanchor="bottom", y=-0.26, xanchor="right", x=1)
 chart_width, chart_height = 500, 450
 table_cols = ['month', 'town', 'flat', 'block', 'street_name', 'storey_range',
-              'lease_mths', 'area_sqm', 'area_sq_ft', 'price_sq_m',
-              'price_sq_ft', 'price']
+              'lease_mths', 'area_sqm', 'area_sqft', 'price_sq_m',
+              'price_sqft', 'price']
 
 
 def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
@@ -134,12 +134,12 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     if area_type == "Sq M":
         area_type = "area"
     else:
-        area_type = "area_sq_ft"
+        area_type = "area_sqft"
 
     if price_type == "Price":
         price_type = "price"
     else:
-        price_type = "price_sq_ft"
+        price_type = "price_sqft"
 
     if town != "All":
         fdf = fdf[fdf.town == town]
@@ -498,8 +498,8 @@ def update_text(n_clicks, month, town, flat, area_type, max_area, min_area,
         price_min = fdf.price.min()
         price_max = fdf.price.max()
 
-        area_min = fdf.area_sq_ft.min()
-        area_max = fdf.area_sq_ft.max()
+        area_min = fdf.area_sqft.min()
+        area_max = fdf.area_sqft.max()
 
     elif price_type == "Price / Area" and area_type == "Sq M":
         price_min = fdf.price_sq_m.min()
@@ -510,11 +510,11 @@ def update_text(n_clicks, month, town, flat, area_type, max_area, min_area,
         price_type = 'Price / Sq M'
 
     elif price_type == "Price / Area" and area_type == "Sq Feet":
-        price_min = fdf.price_sq_ft.min()
-        price_max = fdf.price_sq_ft.max()
+        price_min = fdf.price_sqft.min()
+        price_max = fdf.price_sqft.max()
 
-        area_min = fdf.area_sq_ft.min()
-        area_max = fdf.area_sq_ft.max()
+        area_min = fdf.area_sqft.min()
+        area_max = fdf.area_sqft.max()
         price_type = 'Price / Sq Feet'
 
     dynamic_text = f"""<b>You searched : </b>
@@ -553,10 +553,10 @@ def update_g0(n_clicks, month, town, flat, area_type, max_area, min_area,
                               ].to_numpy())
 
     if area_type != "Sq M":
-        price_area = 'price_sq_ft'
+        price_area = 'price_sqft'
         price_label = 'Sq Ft'
         customdata_set = list(fdf[['town', 'street_name', 'lease_mths',
-                                   'area_sq_ft']].to_numpy())
+                                   'area_sqft']].to_numpy())
 
     fig = go.Figure()
     fig.add_trace(
@@ -597,7 +597,7 @@ def update_g1(n_clicks, month, town, flat, area_type, max_area, min_area,
     price_label = 'Sq M'
 
     if area_type != "Sq M":
-        price_area = 'price_sq_ft'
+        price_area = 'price_sqft'
         price_label = 'Sq Ft'
 
     fig = go.Figure()
