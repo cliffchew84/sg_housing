@@ -1,13 +1,25 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.wsgi import WSGIMiddleware
-from public_housing import app as public_housing
-from location_map import app as location_map
+from housing import app as housing
+# from location_map import app as location_map
+
 
 app = FastAPI()
-app.mount("/public_housing", WSGIMiddleware(public_housing.server))
-app.mount("/location_map", WSGIMiddleware(location_map.server))
+app.mount('/static', StaticFiles(directory='static'), name='static')
+app.mount("/housing", WSGIMiddleware(housing.server))
+# app.mount("/location_map", WSGIMiddleware(location_map.server))
+templates = Jinja2Templates(directory='templates')
 
 
 @app.get("/")
 def index():
-    return "Go ~/public_housing or ~/location_map to see your apps"
+    return "Go ~/housing or ~/location_map [ WIP ] to see our property apps"
+
+
+@app.get("/public_housing", response_class=HTMLResponse)
+async def read_root(request: Request):
+    return templates.TemplateResponse("house_dash.html",
+                                      {"request": request})

@@ -2,7 +2,6 @@ from dash import Dash, html, dcc, Input, Output, callback, State
 import dash_bootstrap_components as dbc
 from utils import data_process as dp
 import plotly.graph_objects as go
-from dotenv import load_dotenv
 from datetime import datetime
 import dash_ag_grid as dag
 import pandas as pd
@@ -13,8 +12,7 @@ import json
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 # Simple parameter to trigger mongoDB instead of using local storage
-load_dotenv()
-api_calls = False
+api_calls = True
 if api_calls:
     current_mth = datetime.now().date().strftime("%Y-%m")
     total_periods = [str(i)[:7] for i in pd.date_range(
@@ -57,6 +55,9 @@ if api_calls:
     df['price_sq_m'] = [round(i, 2) for i in df['price'] / df['area_sqm']]
     df['price_sq_ft'] = [round(i, 2) for i in df['price'] / df['area_sq_ft']]
 
+    df['lease_mths'] = [i.replace("years", 'yrs') for i in df['lease_mths']]
+    df['lease_mths'] = [i.replace("months", 'mths') for i in df['lease_mths']]
+
     df = df[['month', 'town', 'flat', 'block', 'street_name', 'storey_range',
              'lease_mths', 'area_sqm', 'area_sq_ft', 'price_sq_m',
              'price_sq_ft', 'price']]
@@ -81,7 +82,7 @@ else:
 app = Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
-    requests_pathname_prefix="/public_housing/",
+    requests_pathname_prefix="/housing/",
 )
 
 towns = df.town.unique().tolist()
@@ -165,167 +166,225 @@ app.layout = html.Div([
         children=df.to_json(date_format="iso", orient="split"),
     ),
     html.H2(
-        children="Singapore Public Housing Transactions Research",
+        children="These are Homes, Truly",
         style={"textAlign": "left", "padding-top": "10px",
                "padding-right": "10px", "padding-left": "10px",
                "color": "#555"},
     ),
-    html.P(
+    dcc.Markdown(
         """
         Explore Singapore's most recent past public housing transactions
         effortlessly with our site! Updated daily with data from data.gov.sg
         through their API service, our tool allows you access to the latest
-        information public housing resale data provided by HDB.""",
+        information public housing resale data provided by HDB. Currently,
+        the data is taken as is, and may not reflect the latest public housing
+        transactions reported by the media.
+
+        We built this tool to help you conduct research on the Singapore public
+        housing resale market for any purpose, whether you're a prospective
+        buyer, seller, or someone just curious about how much your neighbours
+        are selling their public homes! Beyond a table of transactions, we have
+        included a scatter plot to compare home prices with their price per
+        area ( sq metre / sq feet ) and a boxplot distribution of home prices
+        or price per area.
+
+        This website is best view on a desktop. Doing property research on
+        your phone will be such a pain!
+
+        Also, if you are interested in how our Singapore public housing resale
+        market has been trending in the past few years, visit my other
+        dashboard, [SG Public Housing Dashboard](https://cliffchew84.github.io/profile/hdb-housing.html"),
+        where I cover share broader public housing resale trends, outliers
+        and price category breakdowns.""",
         style={"textAlign": "left", "color": "#555", "padding": "5px"},
     ),
-    html.P(
-        """
-        We built this to help you conduct thorough public housing research for
-        any purpose, whether you're a prospective buyer, a researcher, or
-        simply curious about the housing market trends in Singapore! For the
-        best experience and to access all features, we recommend using a
-        desktop.""",
-        style={"textAlign": "left", "color": "#555", "padding": "5px"},
-    ),
-    html.Hr(
-        style={
-            "borderWidth": "3px",
-            "width": "100%",
-            "color": "#007BFF",
-            "margin": "auto",
-        }
-    ),
-    html.Div([
-        html.Div([
-            html.Label("Months"),
-            dcc.Dropdown(options=[3, 6], value=6, id="month")
-        ], style={"display": "inline-block",
-                  "width": "7%", "padding": "10px"},
+    dbc.Row([
+        dbc.Col(
+            dbc.Button(
+                "Filters",
+                id="collapse-button",
+                className="mb-3",
+                color="danger",
+                n_clicks=0,
+                style={"verticalAlign": "top"}
+            ),
+            width="auto"
         ),
-        html.Div([
-            html.Label("Town"),
-            html.Div(dcc.Dropdown(options=towns, value="All", id="town")),
-        ], style={"display": "inline-block",
-                  "width": "18%", "padding": "10px"},
+        dbc.Col(
+            html.P(
+                id="dynamic-text",
+                style={"textAlign": "center", "padding-top": "10px"}
+            ),
+            width="auto"
         ),
-        html.Div([
-            html.Label("Flats"),
-            dcc.Dropdown(multi=True, options=flat_type_grps,
+        dbc.Col(
+            dbc.Button(
+                "Caveats",
+                id="collapse-caveats",
+                className="mb-3",
+                color="danger",
+                n_clicks=0,
+                style={"verticalAlign": "top"}
+            ),
+            width="auto"
+        ),
+    ], justify="center"),
+    dbc.Collapse(
+        dbc.Card(
+            dbc.CardBody([
+                dcc.Markdown("""
+                1. Area provided by HDB is in square metres. Calculations for
+                square feet are done by taking square metres by 10.7639.
+                2. Lease left is calculated from remaining lease provided by
+                HDB.
+                3. Data is taken from HDB as is. This data source seems
+                slower that transactions reported in the media.
+                4. Information provided here is only meant for research, and
+                shouldn't be seen as financial advice.""")
+            ], style={"textAlign": "left", "color": "#555", "padding": "5px"}),
+        ),
+        id="caveats",
+        is_open=False,
+    ),
+    dbc.Collapse(
+        dbc.Card(dbc.CardBody([
+            html.Div([
+                html.Div([
+                    html.Label("Months"),
+                    dcc.Dropdown(options=[3, 6], value=6, id="month")
+                ], style={"display": "inline-block",
+                          "width": "7%", "padding": "10px"},
+                ),
+                html.Div([
+                    html.Label("Town"),
+                    html.Div(dcc.Dropdown(
+                        options=towns, value="All", id="town")),
+                ], style={"display": "inline-block",
+                          "width": "18%", "padding": "10px"},
+                ),
+                html.Div([
+                    html.Label("Flats"),
+                    dcc.Dropdown(multi=True, options=flat_type_grps,
                          value=flat_type_grps, id="flat"),
-        ], style={"display": "inline-block",
-                  "width": "35%", "padding": "10px"},
-        ),
-        html.Div([
-            html.Label("Min Lease (Yrs)"),
-            dcc.Input(type="number",
-                      placeholder="Add No.",
-                      style={"display": "flex",
-                             "border-color": "#E5E4E2",
-                             "padding": "5px"},
-                      id="min_lease"),
-        ], style={"display": "flex",  "flexDirection": "column",
-                  "width": "10%", "padding": "10px", "verticalAlign": "top"}),
-        html.Div([
-            html.Label("Max Lease (Yrs)"),
-            dcc.Input(type="number",
-                      placeholder="Add No.",
-                      style={"display": "flex",
-                             "border-color": "#E5E4E2",
-                             "padding": "5px"},
-                      id="max_lease"),
-        ], style={"display": "flex",  "flexDirection": "column",
-                  "width": "10%", "padding": "10px", "verticalAlign": "top"},
-        )
-    ], style={"display": "flex", "flexDirection": "row",
-              "alignItems": "center"}
-    ),
-    # Area inputs
-    html.Div([
-        html.Div([
-            html.Label("Sq Feet | Sq M"),
-            html.Div(dcc.Dropdown(options=['Sq M', "Sq Feet"],
-                                  value="Sq Feet", id="area_type")),
-        ], style={"display": "flex", "flexDirection": "column",
-                  "width": "12%", "padding": "10px"},
-        ),
-        html.Div([
-            html.Label("Min Area"),
-            dcc.Input(type="number",
-                      placeholder="Add No.",
-                      style={"display": "inline-block",
-                             "border-color": "#E5E4E2",
-                             "padding": "5px"},
-                      id="min_area"),
-        ], style={"display": "flex",  "flexDirection": "column",
-                  "width": "12%", "padding": "5px"},
-        ),
-        html.Div([
-            html.Label("Max Area"),
-            dcc.Input(type="number",
-                      placeholder="Add No.",
-                      style={"display": "inline-block",
-                             "border-color": "#E5E4E2",
-                             "padding": "5px"},
-                      id="max_area"),
-        ], style={"display": "flex", "flexDirection": "column",
-                  "width": "12%", "padding": "5px"},
-        ),
-        html.Div([
-            html.Label("Price | Price / Area"),
-            dcc.Dropdown(options=['Price', "Price / Area"],
+                ], style={"display": "inline-block",
+                          "width": "35%", "padding": "10px"},
+                ),
+                html.Div([
+                    html.Label("Min Lease [Yrs]"),
+                    dcc.Input(type="number",
+                              placeholder="Add No.",
+                              style={"display": "flex",
+                                     "border-color": "#E5E4E2",
+                                     "padding": "5px"},
+                              id="min_lease"),
+                ], style={"display": "flex",  "flexDirection": "column",
+                          "width": "12%", "padding": "10px",
+                          "verticalAlign": "top"}),
+                html.Div([
+                    html.Label("Max Lease [Yrs]"),
+                    dcc.Input(type="number",
+                              placeholder="Add No.",
+                              style={"display": "flex",
+                                     "border-color": "#E5E4E2",
+                                     "padding": "5px"},
+                              id="max_lease"),
+                ], style={"display": "flex",  "flexDirection": "column",
+                          "width": "12%", "padding": "10px",
+                          "verticalAlign": "top"},
+                )
+            ], style={"display": "flex", "flexDirection": "row",
+                      "alignItems": "center"}
+            ),
+            # Area inputs
+            html.Div([
+                html.Div([
+                    html.Label("Sq Feet | Sq M"),
+                    html.Div(dcc.Dropdown(options=['Sq M', "Sq Feet"],
+                                          value="Sq Feet", id="area_type")),
+                ], style={"display": "flex", "flexDirection": "column",
+                          "width": "12%", "padding": "10px"},
+                ),
+                html.Div([
+                    html.Label("Min Area"),
+                    dcc.Input(type="number",
+                              placeholder="Add No.",
+                              style={"display": "inline-block",
+                                     "border-color": "#E5E4E2",
+                                     "padding": "5px"},
+                              id="min_area"),
+                ], style={"display": "flex",  "flexDirection": "column",
+                          "width": "12%", "padding": "5px"},
+                ),
+                html.Div([
+                    html.Label("Max Area"),
+                    dcc.Input(type="number",
+                              placeholder="Add No.",
+                              style={"display": "inline-block",
+                                     "border-color": "#E5E4E2",
+                                     "padding": "5px"},
+                              id="max_area"),
+                ], style={"display": "flex", "flexDirection": "column",
+                          "width": "12%", "padding": "5px"},
+                ),
+                html.Div([
+                    html.Label("Price | Price / Area"),
+                    dcc.Dropdown(options=['Price', "Price / Area"],
                          value="Price", id="price_type"),
-        ], style={"display": "flex", "flexDirection": "column",
-                  "width": "12%", "padding": "5px"},
-        ),
-        html.Div([
-            html.Label("Min Price"),
-            dcc.Input(type="number",
-                      placeholder="Add No.",
-                      style={"display": "inline-block",
-                             "border-color": "#E5E4E2",
-                             "padding": "5px"},
-                      id="min_price"),
-        ], style={"display": "flex", "flexDirection": "column",
-                  "width": "12%", "padding": "5px"},
-        ),
-        html.Div([
-            html.Label("Max Price"),
-            dcc.Input(type="number",
-                      style={"display": "inline-block",
-                             "border-color": "#E5E4E2",
-                             "padding": "5px"},
-                      placeholder="Add No.",
-                      id="max_price"),
-        ], style={"display": "flex", "flexDirection": "column",
-                  "width": "12%", "padding": "5px"},
-        ),
-        html.Div([
-            html.Label("Submit"),
-            html.Button('Submit', id='submit-button',
-                        style={"display": "inline-block",
-                               "border-color": "#E5E4E2",
-                               "padding": "5px"},
-                        )
-        ], style={"display": "flex", "flexDirection": "column",
-                  "width": "8%", "padding": "5px"},
-        )
-    ], style={"display": "flex", "flexDirection": "row",
-              "alignItems": "center"}),
-    html.Div([
-        html.Label("""Search by Street Name
+                ], style={"display": "flex", "flexDirection": "column",
+                          "width": "12%", "padding": "5px"},
+                ),
+                html.Div([
+                    html.Label("Min Price | Price / Area"),
+                    dcc.Input(type="number",
+                              placeholder="Add No.",
+                              style={"display": "inline-block",
+                                     "border-color": "#E5E4E2",
+                                     "padding": "5px"},
+                              id="min_price"),
+                ], style={"display": "flex", "flexDirection": "column",
+                          "width": "15%", "padding": "5px"},
+                ),
+                html.Div([
+                    html.Label("Max Price | Price / Area"),
+                    dcc.Input(type="number",
+                              style={"display": "inline-block",
+                                     "border-color": "#E5E4E2",
+                                     "padding": "5px"},
+                              placeholder="Add No.",
+                              id="max_price"),
+                ], style={"display": "flex", "flexDirection": "column",
+                          "width": "15%", "padding": "5px"},
+                ),
+                html.Div([
+                    html.Label("Submit"),
+                    html.Button('Submit', id='submit-button',
+                                style={"display": "inline-block",
+                                       "border-color": "#E5E4E2",
+                                       "padding": "5px"},
+                                )
+                ], style={"display": "flex", "flexDirection": "column",
+                          "width": "8%", "padding": "5px"},
+                )
+            ], style={"display": "flex", "flexDirection": "row",
+                      "alignItems": "center"}),
+            html.Div([
+                html.Label("""Search by Street Name
         ( Add | separator to include >1 street name )"""),
-        dcc.Input(type="text",
-                  style={"display": "inline-block",
-                         "border-color": "#E5E4E2",
-                         "padding": "5px"},
-                  placeholder="Type the Street Name here",
-                  id="street_name"),
-    ], style={"display": "flex", "flexDirection": "column",
-              "width": "45%", "padding": "5px"},
+                dcc.Input(type="text",
+                          style={"display": "inline-block",
+                                 "border-color": "#E5E4E2",
+                                 "padding": "5px"},
+                          placeholder="Type the Street Name here",
+                          id="street_name"),
+            ], style={"display": "flex", "flexDirection": "column",
+                      "width": "45%", "padding": "5px"},
+            ),
+        ]
+        )),
+        id="collapse",
+        is_open=True,
     ),
     # Text box to display dynamic content
-    html.P(id="dynamic-text",
-           style={"textAlign": "center", "padding-top": "15px"}),
     html.Div([
         html.Div([
             dcc.Loading([
@@ -376,8 +435,8 @@ app.layout = html.Div([
                "alignItems": "center",
                "minHeight": "100vh",
                "textAlign": "center",
-               },
-    ),
+               }
+    )
 ])
 
 
@@ -471,7 +530,11 @@ def update_text(n_clicks, month, town, flat, area_type, max_area, min_area,
     elif max_lease:
         dynamic_text += f" | <b>Lease =< </b> {max_lease:,}"
 
-    dynamic_text += f" | <b>Total records</b>: {records:,}"
+    if records != 0:
+        dynamic_text += f" | <b>Total records</b>: {records:,}"
+    else:
+        dynamic_text += " | <b>Your search created no results</b>"
+
     return dcc.Markdown(dynamic_text, dangerously_allow_html=True)
 
 
@@ -486,15 +549,27 @@ def update_g0(n_clicks, month, town, flat, area_type, max_area, min_area,
     price_area = 'price_sq_m'
     price_label = 'Sq M'
 
+    customdata_set = list(fdf[['town', 'street_name', 'lease_mths', 'area_sqm']
+                              ].to_numpy())
+
     if area_type != "Sq M":
         price_area = 'price_sq_ft'
         price_label = 'Sq Ft'
+        customdata_set = list(fdf[['town', 'street_name', 'lease_mths',
+                                   'area_sq_ft']].to_numpy())
 
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
             y=fdf['price'],  # unchanged
             x=fdf[price_area],
+            customdata=customdata_set,
+            hovertemplate='<i>Price:</i> %{y:$,}<br>' +
+            '<i>Area:</i> %{customdata[3]:,}<br>' +
+            '<i>Price/Area:</i> %{x:$,}<br>' +
+            '<i>Town :</i> %{customdata[0]}<br>' +
+            '<i>Street Name:</i> %{customdata[1]}<br>' +
+            '<i>Lease Left:</i> %{customdata[2]}',
             mode='markers',
             marker_color="rgb(8,81,156)",
         )
@@ -544,6 +619,28 @@ def update_g1(n_clicks, month, town, flat, area_type, max_area, min_area,
         showlegend=False,
     )
     return fig
+
+
+@app.callback(
+    Output("collapse", "is_open"),
+    [Input("collapse-button", "n_clicks")],
+    [State("collapse", "is_open")],
+)
+def toggle_collapse(n, is_open):
+    if n:
+        return not is_open
+    return is_open
+
+
+@app.callback(
+    Output("caveats", "is_open"),
+    [Input("collapse-caveats", "n_clicks")],
+    [State("caveats", "is_open")],
+)
+def toggle_caveat(n, is_open):
+    if n:
+        return not is_open
+    return is_open
 
 
 if __name__ == "__main__":
