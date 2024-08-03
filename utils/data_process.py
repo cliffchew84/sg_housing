@@ -1,9 +1,6 @@
-import random
-import polyline
 import geopy.distance
 import pandas as pd
 import numpy as np
-from . import onemap_fun as om
 
 
 def create_mdb_query_w_df_cols(df: pd.DataFrame):
@@ -48,44 +45,6 @@ def table_select_from_pt(df: pd.DataFrame,
         selected_df = df[df['dist'] > radius].reset_index(drop=True)
 
     return selected_df
-
-
-def create_route(start_latlong: tuple,
-                 end_latlong: tuple,
-                 route_type: str = 'walk') -> (list, float):
-    """ Creates route from start_latlong and end_latlong
-    Output two outputs:
-    1. List of coordiate tuples that traces out a route
-    2. Total distance of route
-    """
-
-    # Route creation
-    route_output = om.make_route_api(
-        start_latlong, end_latlong, route_type=route_type)
-    total_d = om.get_total_route_dist(route_output)
-
-    # Processing walking route
-    route_g = route_output.json().get('route_geometry')
-    line = polyline.decode(route_g)
-    routing = pd.concat([pd.Series(line), pd.Series(line)], axis=1)
-    routing[1] = routing[1].shift(-1)
-    route_list = [(i, j) for i, j in zip(routing[0], routing[1])
-                  if j is not None]
-
-    return route_list, total_d
-
-
-def generate_color():
-    """
-    Generate random values for red, green, and blue
-    Wants to eventually change this to a selection of more chart friendly
-    colours.
-    """
-    r = random.randint(0, 255)
-    g = random.randint(0, 255)
-    b = random.randint(0, 255)
-
-    return f"rgb({r}, {g}, {b})"
 
 
 def process_df_lease_left(df: pd.DataFrame) -> pd.DataFrame:
