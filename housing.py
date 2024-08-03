@@ -194,7 +194,7 @@ app.layout = html.Div([
 
         Also, if you are interested in how our Singapore public housing resale
         market has been trending in the past few years, visit my other
-        dashboard, [SG Public Housing Dashboard](https://cliffchew84.github.io/profile/hdb-housing.html"),
+        dashboard, [SG Public Housing Dashboard](https://cliffchew84.github.io/profile/hdb-housing.html),
         where I cover share broader public housing resale trends, outliers
         and price category breakdowns.""",
         style={"textAlign": "left", "color": "#555", "padding": "5px"},
