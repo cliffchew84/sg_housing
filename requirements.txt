@@ -4,8 +4,8 @@ dash_bootstrap_components==1.1.0
 dash_leaflet==1.*
 fastapi==0.111.1
 geopy==2.2.0
-numpy==1.22.2
-pandas==1.4.1
+numpy==1.*
+pandas==1.*
 plotly==5.6.0
 polyline==2.0.2
 pymongo==4.8.0
