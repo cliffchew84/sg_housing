@@ -53,7 +53,7 @@ if api_calls:
     df = df[df['month'] >= '2024-01']
     df['area_sqft'] = [round(i, 2) for i in df['area_sqm'] * 10.7639]
     df['price_sqm'] = [round(i, 2) for i in df['price'] / df['area_sqm']]
-    df['price_sqft'] = [round(i, 2) for i in df['price'] / df['area_sq_ft']]
+    df['price_sqft'] = [round(i, 2) for i in df['price'] / df['area_sqft']]
 
     df['lease_mths'] = [i.replace("years", 'yrs') for i in df['lease_mths']]
     df['lease_mths'] = [i.replace("months", 'mths') for i in df['lease_mths']]
@@ -73,9 +73,9 @@ else:
     df['area_sqft'] = [round(i, 2) for i in df['area_sqm'] * 10.7639]
 
     df['price_sqm'] = [round(i, 2) for i in df['price'] / df['area_sqm']]
-    df['price_sqft'] = [round(i, 2) for i in df['price'] / df['area_sq_ft']]
+    df['price_sqft'] = [round(i, 2) for i in df['price'] / df['area_sqft']]
 
-    df = df[['month', 'town', 'flat', 'block', 'street_name', 'storey_range',
+    df = df[['month', 'town', 'flat', 'street_name', 'storey_range',
              'lease_mths', 'area_sqm', 'area_sqft', 'price_sqm',
              'price_sqft', 'price']]
 
@@ -104,7 +104,7 @@ price_max, price_min = df["price"].max(), df["price"].min()
 area_max, area_min = df["area_sqm"].max(), df["area_sqm"].min()
 legend = dict(orientation="h", yanchor="bottom", y=-0.26, xanchor="right", x=1)
 chart_width, chart_height = 500, 450
-table_cols = ['month', 'town', 'flat', 'block', 'street_name', 'storey_range',
+table_cols = ['month', 'town', 'flat', 'street_name', 'storey_range',
               'lease_mths', 'area_sqm', 'area_sqft', 'price_sqm',
               'price_sqft', 'price']
 
