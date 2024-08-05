@@ -85,7 +85,10 @@ else:
 # Initalise App
 app = Dash(
     __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    external_stylesheets=[
+        {'src': 'https://cdn.tailwindcss.com'},
+        dbc.themes.BOOTSTRAP,
+    ],
     requests_pathname_prefix="/housing/",
 )
 
@@ -166,11 +169,10 @@ app.layout = html.Div([
         style={"display": "none"},
         children=df.to_json(date_format="iso", orient="split"),
     ),
-    html.H2(
+    html.H3(
         children="These are Homes, Truly",
-        style={"textAlign": "left", "padding-top": "10px",
-               "padding-right": "10px", "padding-left": "10px",
-               "color": "#555"},
+        style={'font-weight': 'bold', 'font-size': '26px'},
+        className="mb-4 pt-4 px-4",
     ),
     dcc.Markdown(
         """
@@ -189,15 +191,15 @@ app.layout = html.Div([
         area ( sq metre / sq feet ) and a boxplot distribution of home prices
         or price per area.
 
-        This website is best view on a desktop. Doing property research on
-        your phone will be such a pain!
+        **This website is best view on a desktop. Doing property research on
+        your phone will be such a pain!**
 
-        Also, if you are interested in how our Singapore public housing resale
-        market has been trending in the past few years, visit my other
-        dashboard, [SG Public Housing Dashboard](https://cliffchew84.github.io/profile/hdb-housing.html),
-        where I cover share broader public housing resale trends, outliers
-        and price category breakdowns.""",
-        style={"textAlign": "left", "color": "#555", "padding": "5px"},
+        *Also, if you are interested general Singapore public housing resale
+        market trends in the past few years, visit my other dashboard,
+        [SG Public Housing Dashboard](https://sg-housing.onrender.com/sg-public-home-trends),
+        where I share broader public housing resale trends, outliers and price
+        category breakdowns.*""",
+        className="px-4",
     ),
     dbc.Row([
         dbc.Col(
