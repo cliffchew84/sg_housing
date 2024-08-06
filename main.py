@@ -5,10 +5,12 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.wsgi import WSGIMiddleware
 from housing import app as housing
+from fastapi_blog import add_blog_to_fastapi
 # from location_map import app as location_map
 
 
 app = FastAPI()
+app = add_blog_to_fastapi(app)
 app.mount('/static', StaticFiles(directory='static'), name='static')
 app.mount("/housing", WSGIMiddleware(housing.server))
 # app.mount("/location_map", WSGIMiddleware(location_map.server))
