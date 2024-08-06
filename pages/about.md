@@ -1,20 +1,20 @@
 ---
 title: "About Me"
-description: "A little bit of background about me"
-author: "Daniel Roy Greenfeld"
+description: "A bit about me"
+author: "Cliff Chew"
 ---
-
-[TOC]
 
 ## Intro about me
 
-I'm probably best known as "[pydanny](https://www.google.com/search?q=pydanny)", one of the authors of Two Scoops of Django.
+I am a social science major who happened to pick up some technical skills along
+the way, and is now, using them to identify interesting patterns in the
+Singapore housing market, using publicly available data sets from our Singapore
+government agencies, HDB and URA.
 
-I love to hang out with my [wife](https://audrey.feldroy.com/), play with my [daughter](/tags/uma), do [Brazilian Jiu-Jitsu](https://academyofbrazilianjiujitsu.com/), write [books](/books), and read books.
+## Where you can reach me 
 
-- [Mastodon](https://fosstodon.org/@danielfeldroy)
-- [LinkedIn](https://www.linkedin.com/in/danielfeldroy/)
-- [Twitter](https://twitter.com/pydanny)
+- [LinkedIn](https://www.linkedin.com/in/cliff-chew-kt/)
+- [Portfolio](https://cliffchew84.github.io/profile/)
 
 ## About this site
 
@@ -23,6 +23,7 @@ This site is written in:
 - Python
 - FastAPI
 - fastapi-blog
-- Sakura minimal CSS framework
 - Markdown
 - Vanilla HTML
+- TailwindCSS
+- Plotly and Dash
