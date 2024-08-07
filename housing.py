@@ -16,71 +16,56 @@ table_cols = ['month', 'town', 'housing', 'street_name', 'storey_range',
               'price_sqft', 'price']
 
 # Simple parameter to trigger mongoDB instead of using local storage
-api_calls = True
-if api_calls:
-    current_mth = datetime.now().date().strftime("%Y-%m")
-    total_periods = [str(i)[:7] for i in pd.date_range(
-        "2024-01-01", current_mth + "-01", freq='MS').tolist()]
-    recent_periods = total_periods[-6:]
+current_mth = datetime.now().date().strftime("%Y-%m")
+total_periods = [str(i)[:7] for i in pd.date_range(
+    "2024-01-01", current_mth + "-01", freq='MS').tolist()]
+recent_periods = total_periods[-6:]
 
-    df_cols = ['month', 'town', 'flat_type', 'block', 'street_name',
-               'storey_range', 'floor_area_sqm', 'remaining_lease',
-               'resale_price']
-    param_fields = ",".join(df_cols)
-    base_url = "https://data.gov.sg/api/action/datastore_search?resource_id="
-    ext_url = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc"
-    full_url = base_url + ext_url
+df_cols = ['month', 'town', 'flat_type', 'block', 'street_name',
+           'storey_range', 'floor_area_sqm', 'remaining_lease',
+           'resale_price']
+param_fields = ",".join(df_cols)
+base_url = "https://data.gov.sg/api/action/datastore_search?resource_id="
+ext_url = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc"
+full_url = base_url + ext_url
 
-    recent_df = pd.DataFrame()
-    for period in recent_periods:
-        params = {
-            "fields": param_fields,
-            "filters": json.dumps({'month': period}),
-            "limit": 10000
-        }
-        response = requests.get(full_url, params=params)
-        mth_df = pd.DataFrame(response.json().get("result").get("records"))
-        recent_df = pd.concat([recent_df, mth_df], axis=0)
+recent_df = pd.DataFrame()
+for period in recent_periods:
+    params = {
+        "fields": param_fields,
+        "filters": json.dumps({'month': period}),
+        "limit": 10000
+    }
+    response = requests.get(full_url, params=params)
+    mth_df = pd.DataFrame(response.json().get("result").get("records"))
+    recent_df = pd.concat([recent_df, mth_df], axis=0)
 
-    # Data Processing
-    df = recent_df.copy()
-    df.columns = ['month', 'town', 'flat', 'block', 'street_name',
-                  'storey_range', 'area_sqm', 'lease_mths', 'price']
+# Data Processing
+df = recent_df.copy()
+df.columns = ['month', 'town', 'flat', 'block', 'street_name',
+              'storey_range', 'area_sqm', 'lease_mths', 'price']
 
-    df = dp.process_df_lease_left(df)
-    df = dp.process_df_flat(df)
+df = dp.process_df_lease_left(df)
+df = dp.process_df_flat(df)
 
-    df['storey_range'] = [i.replace(' TO ', '-') for i in df['storey_range']]
-    df['area_sqm'] = df['area_sqm'].astype(np.float16)
-    df['price'] = df['price'].astype(np.float32)
+df['storey_range'] = [i.replace(' TO ', '-') for i in df['storey_range']]
+df['area_sqm'] = df['area_sqm'].astype(np.float16)
+df['price'] = df['price'].astype(np.float32)
 
-    df = df[df['month'] >= '2024-01']
-    df['area_sqft'] = [round(i, 2) for i in df['area_sqm'] * 10.7639]
-    df['price_sqm'] = [round(i, 2) for i in df['price'] / df['area_sqm']]
-    df['price_sqft'] = [round(i, 2) for i in df['price'] / df['area_sqft']]
+df = df[df['month'] >= '2024-01']
+df['area_sqft'] = [round(i, 2) for i in df['area_sqm'] * 10.7639]
+df['price_sqm'] = [round(i, 2) for i in df['price'] / df['area_sqm']]
+df['price_sqft'] = [round(i, 2) for i in df['price'] / df['area_sqft']]
 
-    df['lease_mths'] = [i.replace(" years", 'y') for i in df['lease_mths']]
-    df['lease_mths'] = [i.replace(" months", 'm') for i in df['lease_mths']]
-    df['street_name'] = "BLK " + df['block'] + " " + df['street_name']
-    df.rename(columns={'flat': 'housing', 'lease_mths': 'lease_left'},
-              inplace=True)
-    df = df[table_cols]
+df['lease_mths'] = [i.replace(" years", 'y') for i in df['lease_mths']]
+df['lease_mths'] = [i.replace(" months", 'm') for i in df['lease_mths']]
+df['street_name'] = "BLK " + df['block'] + " " + df['street_name']
+df.rename(columns={'flat': 'housing', 'lease_mths': 'lease_left'},
+          inplace=True)
+df = df[table_cols]
 
-    print("Completed data extraction from data.gov.sg")
+print("Completed data extraction from data.gov.sg")
 
-else:
-    # Load data through MongoDB, but I am mindful of storage and costs
-    df = pd.read_csv("data/local_df.csv")
-    df.rename(columns={'area': 'area_sqm'}, inplace=True)
-    df = df[df['month'] >= '2024-01']
-    df['area_sqft'] = [round(i, 2) for i in df['area_sqm'] * 10.7639]
-
-    df['price_sqm'] = [round(i, 2) for i in df['price'] / df['area_sqm']]
-    df['price_sqft'] = [round(i, 2) for i in df['price'] / df['area_sqft']]
-
-    df.rename(columns={'flat': 'housing', 'lease_mths': 'lease_left'},
-              inplace=True)
-    df = df[table_cols]
 
 # Initalise App
 app = Dash(
@@ -177,26 +162,25 @@ app.layout = html.Div([
     dcc.Markdown(
         """
         Explore Singapore's most recent past public housing transactions
-        effortlessly with our site! Updated daily with data from data.gov.sg
-        through their API service, our tool allows you access to the latest
-        information public housing resale data provided by HDB. Currently,
-        the data is taken as is, and may not reflect the latest public housing
-        transactions reported by the media.
+        effortlessly with our site! Updated daily with data from data.gov.sg,
+        our tool allows you access to the latest information public housing
+        resale data provided by HDB. Currently, the data is taken as is, and
+        may not reflect the latest public housing transactions reported by the
+        media.
 
-        We built this tool to help you conduct research on the Singapore public
-        housing resale market for any purpose, whether you're a prospective
-        buyer, seller, or someone just curious about how much your neighbours
-        are selling their public homes! Beyond a table of transactions, we have
-        included a scatter plot to compare home prices with their price per
-        area ( sq metre / sq feet ) and a boxplot distribution of home prices
-        or price per area.
+        I built this tool to help anyone who wants to research on the Singapore
+        public housing resale market, whether you're a prospective buyer,
+        seller, or someone just curious about how much your neighbours are
+        selling their public homes! Beyond a table of transactions, I included
+        a scatter plot to compare home prices with price per sq metre / feet
+        and a boxplot distribution of home prices or price per sq metre / feet.
 
-        **This website is best view on a desktop. Doing property research on
-        your phone will be such a pain!**
+        **This website is best view on a desktop, because doing property
+        research on your phone will be such a pain!**
 
         *Also, if you are interested general Singapore public housing resale
-        market trends in the past few years, visit my other dashboard,
-        [SG Public Housing Dashboard](https://sg-housing.onrender.com/sg-public-home-trends),
+        market trends of the past few years, visit my other dashboard @ [Public
+        Home Trends](https://sg-housing.onrender.com/sg-public-home-trends),
         where I share broader public housing resale trends, outliers and price
         category breakdowns.*""",
         className="px-4",
