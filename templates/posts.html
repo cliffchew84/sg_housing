@@ -1,6 +1,7 @@
+{% include 'header.html' %}
 {% extends "layout/base.html" %}
 {% block content %}
-<h1>Articles</h1>
+<h1 class='pt-4 pb-2 text-xl font-bold'>Posts</h1>
 
 {% for post in posts %}
 {% include "partials/_post_short.html" %}
