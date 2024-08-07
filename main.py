@@ -1,4 +1,5 @@
 import requests
+import jinja2
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -9,8 +10,14 @@ from fastapi_blog import add_blog_to_fastapi
 # from location_map import app as location_map
 
 
+django_style_jinja2_loader = jinja2.ChoiceLoader([
+    jinja2.FileSystemLoader("templates"),
+    jinja2.PackageLoader("fastapi_blog", "templates"),
+])
+
 app = FastAPI()
-app = add_blog_to_fastapi(app)
+app = add_blog_to_fastapi(app, jinja2_loader=django_style_jinja2_loader)
+
 app.mount('/static', StaticFiles(directory='static'), name='static')
 app.mount("/housing", WSGIMiddleware(housing.server))
 # app.mount("/location_map", WSGIMiddleware(location_map.server))

@@ -1,0 +1,46 @@
+<html>
+
+<head>
+    <title>Data Analytics on the Singapore Housing Market</title>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark" />
+    <link href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/tw_styles.css">
+</head>
+
+<body>
+    <main class="container">
+        <header>
+            <div class='flex'>
+                <h1 class="text-xl underline font-bold pr-2">
+                    <a href="/sg-public-home-trends">Public Home Trends</a>
+                </h1>
+                <h1 class="text-xl underline font-bold px-2">
+                    <a href="/">Public Home Search</a>
+                </h1>
+                <h1 class="text-xl underline font-bold px-2">
+                    <a href="{{ url_for('blog_index') }}">Blog</a>
+                </h1>
+            </div>
+            <p class="underline font-bold">
+                <a href="{{ url_for('blog_posts') }}">
+                    Posts
+                </a>
+                |
+                <a href="{{ url_for('blog_tags') }}">
+                    Tags
+                </a>
+            </p>
+        </header>
+        <main>
+            {% block content required %}{% endblock content %}
+        </main>
+        <footer>
+            <p class="text-xs">All rights reserved {% now 'utc', '%Y' %}, Daniel Roy Greenfeld</p>
+        </footer>
+    </main>
+</body>
+
+</html>

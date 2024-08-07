@@ -1,0 +1,15 @@
+<post>
+    <h2 class='underline text-bold'>
+        <a href="{{ url_for('blog_post', post_id=post.slug) }}">{{ post.title }}</a>
+    </h2>
+    <p class="pb-4 text-base">
+        {% if post.description %}
+        {{ post.description }}<br />
+        {% endif %}
+        <small><time datetime="{{ post.date }}">{{ post.date }}</time><br>
+            Tags: {% for tag in post.tags %}
+            <a href="{{ url_for('blog_tag', tag_id=tag) }}">{{ tag }}</a>
+            {% endfor %}
+        </small>
+    </p>
+</post>
