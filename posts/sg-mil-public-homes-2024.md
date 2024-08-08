@@ -2,8 +2,8 @@
 date: "2024-02-04"
 published: true
 tags:
-  - SG Property
   - Public Housing
+  - Million Dollar
 title: Singapore Million Dollar Public Homes - 2024 Analysis Update
 description: I studied 20 years of Singapore public housing resale data, and found these interesting insights!
 ---
