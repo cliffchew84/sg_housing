@@ -2,8 +2,8 @@
 date: "2024-03-21"
 published: true
 tags:
-  - SG Property
   - Public Housing
+  - Million Dollar 
 title: Are Singapore public homes still cheap?
 description: I crunched the data to find out!  
 ---
@@ -200,6 +200,3 @@ our Singapore public housing market. A huge caveat for this analysis is that my
 analysis and interpretations are very much an art rather than science.
 Nonetheless, I still hope that everyone who has read till here was able to take
 away something from this article.
-
-Lastly, those interested in seeing some of these interactivity charts can go to
-my Tableau page here, where I replicated these charts on Tableau.
