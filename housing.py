@@ -334,7 +334,7 @@ app.layout = html.Div([
                     dcc.Dropdown(options=['Price', "Price / Area"],
                          value="Price", id="price_type"),
                 ], style={"display": "flex", "flexDirection": "column",
-                          "width": "12%", "padding": "5px"},
+                          "width": "14%", "padding": "5px"},
                 ),
                 html.Div([
                     html.Label("Min Price | Price Per Area"),
