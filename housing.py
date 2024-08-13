@@ -239,9 +239,10 @@ app.layout = html.Div([
                 1. Area provided by HDB is in square metres. Calculations for
                 square feet are done by taking square metres by 10.7639.
                 2. Lease left is calculated from remaining lease provided by
-                HDB.
-                3. Data is taken from HDB as is. This data source seems
-                slower that transactions reported in the media.
+                HDB. This data is provided in years and months, and is
+                converted into total remaining months.
+                3. Data is taken from HDB as is. This data source seems to be
+                slower than transactions reported in the media.
                 4. Information provided here is only meant for research, and
                 shouldn't be seen as financial advice.""")
             ], style={"textAlign": "left", "color": "#555", "padding": "5px"}),
@@ -610,7 +611,7 @@ def update_g2(n_clicks, month, town, flat, area_type, max_area, min_area,
     if area_type != "Sq M":
         price_area = 'price_sqft'
         price_label = 'Sq Ft'
-        customdata_set = list(fdf[['price', 'town', 'street_name', 'area_sqft', 
+        customdata_set = list(fdf[['price', 'town', 'street_name', 'area_sqft',
                                    ]].to_numpy())
 
     fig = go.Figure()
@@ -637,10 +638,10 @@ def update_g2(n_clicks, month, town, flat, area_type, max_area, min_area,
         height=chart_height,
         showlegend=False,
     )
-    
+
     fig.update_xaxes(showspikes=True)
     fig.update_yaxes(showspikes=True)
-    
+
     return fig
 
 
