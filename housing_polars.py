@@ -1,9 +1,10 @@
 from dash import Dash, html, dcc, Input, Output, callback, State
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import dash_bootstrap_components as dbc
-from utils import data_process as dp
 import plotly.graph_objects as go
 from datetime import datetime
 import dash_ag_grid as dag
+import polars as pl
 import pandas as pd
 import numpy as np
 import warnings
@@ -16,11 +17,16 @@ table_cols = ['month', 'town', 'housing', 'street_name', 'storey_range',
               'price_sqft', 'price']
 
 # Simple parameter to trigger mongoDB instead of using local storage
+# Get current month and recent periods
 current_mth = datetime.now().date().strftime("%Y-%m")
-total_periods = [str(i)[:7] for i in pd.date_range(
-    "2024-01-01", current_mth + "-01", freq='MS').tolist()]
+total_periods = [str(i)[:7] for i in pl.date_range(
+    datetime(2024, 1, 1),
+    datetime.now(),
+    interval='1mo',
+    eager=True).to_list()]
 recent_periods = total_periods[-6:]
 
+# Define columns and URL
 df_cols = ['month', 'town', 'flat_type', 'block', 'street_name',
            'storey_range', 'floor_area_sqm', 'remaining_lease',
            'resale_price']
@@ -29,24 +35,35 @@ base_url = "https://data.gov.sg/api/action/datastore_search?resource_id="
 ext_url = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc"
 full_url = base_url + ext_url
 
-recent_df = pd.DataFrame()
-for period in recent_periods:
+
+# Function to make an API request
+def fetch_data_for_period(period):
     params = {
         "fields": param_fields,
         "filters": json.dumps({'month': period}),
         "limit": 10000
     }
     response = requests.get(full_url, params=params)
-    mth_df = pd.DataFrame(response.json().get("result").get("records"))
-    recent_df = pd.concat([recent_df, mth_df], axis=0)
+    if response.status_code == 200:
+        return pl.DataFrame(response.json().get("result").get("records"))
+    else:
+        return pl.DataFrame()  # Return empty DataFrame on error
+
+
+# Use ThreadPoolExecutor to fetch data in parallel
+recent_df = pl.DataFrame()
+with ThreadPoolExecutor(max_workers=5) as executor:
+    futures = {executor.submit(
+        fetch_data_for_period, period): period for period in recent_periods}
+
+    for future in as_completed(futures):
+        mth_df = future.result()
+        recent_df = pl.concat([recent_df, mth_df], how='vertical')
 
 # Data Processing
 df = recent_df.copy()
 df.columns = ['month', 'town', 'flat', 'block', 'street_name',
               'storey_range', 'area_sqm', 'lease_mths', 'price']
-
-df = dp.process_df_lease_left(df)
-df = dp.process_df_flat(df)
 
 df['storey_range'] = [i.replace(' TO ', '-') for i in df['storey_range']]
 df['area_sqm'] = df['area_sqm'].astype(np.float16)
