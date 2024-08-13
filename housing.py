@@ -5,7 +5,6 @@ from utils import data_process as dp
 import plotly.graph_objects as go
 from datetime import datetime
 import dash_ag_grid as dag
-import polars as pl
 import pandas as pd
 import numpy as np
 import warnings
@@ -18,16 +17,11 @@ table_cols = ['month', 'town', 'housing', 'street_name', 'storey_range',
               'price_sqft', 'price']
 
 # Simple parameter to trigger mongoDB instead of using local storage
-# Get current month and recent periods
 current_mth = datetime.now().date().strftime("%Y-%m")
-total_periods = [str(i)[:7] for i in pl.date_range(
-    datetime(2024, 1, 1),
-    datetime.now(),
-    interval='1mo',
-    eager=True).to_list()]
+total_periods = [str(i)[:7] for i in pd.date_range(
+    "2024-01-01", current_mth + "-01", freq='MS').tolist()]
 recent_periods = total_periods[-6:]
 
-# Define columns and URL
 df_cols = ['month', 'town', 'flat_type', 'block', 'street_name',
            'storey_range', 'floor_area_sqm', 'remaining_lease',
            'resale_price']
@@ -46,25 +40,28 @@ def fetch_data_for_period(period):
     }
     response = requests.get(full_url, params=params)
     if response.status_code == 200:
-        return pl.DataFrame(response.json().get("result").get("records"))
+        return pd.DataFrame(response.json().get("result").get("records"))
     else:
-        return pl.DataFrame()  # Return empty DataFrame on error
+        return pd.DataFrame()  # Return empty DataFrame on error
 
 
 # Use ThreadPoolExecutor to fetch data in parallel
-recent_df = pl.DataFrame()
-with ThreadPoolExecutor(max_workers=5) as executor:
+recent_df = pd.DataFrame()
+with ThreadPoolExecutor(max_workers=4) as executor:
     futures = {executor.submit(
         fetch_data_for_period, period): period for period in recent_periods}
 
     for future in as_completed(futures):
         mth_df = future.result()
-        recent_df = pl.concat([recent_df, mth_df], how='vertical')
+        recent_df = pd.concat([recent_df, mth_df], axis=0)
 
 # Data Processing
 df = recent_df.copy()
 df.columns = ['month', 'town', 'flat', 'block', 'street_name',
               'storey_range', 'area_sqm', 'lease_mths', 'price']
+
+df = dp.process_df_lease_left(df)
+df = dp.process_df_flat(df)
 
 df['storey_range'] = [i.replace(' TO ', '-') for i in df['storey_range']]
 df['area_sqm'] = df['area_sqm'].astype(np.float16)
