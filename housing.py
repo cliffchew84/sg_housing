@@ -425,9 +425,11 @@ app.layout = html.Div([
         dcc.Loading([
             html.Div([
                 dcc.Graph(id="g0", style={
-                    "display": "inline-block", "width": "50%"}),
+                    "display": "inline-block", "width": "30%"}),
+                dcc.Graph(id="g2", style={
+                    "display": "inline-block", "width": "30%"}),
                 dcc.Graph(id="g1", style={
-                    "display": "inline-block", "width": "50%"}),
+                    "display": "inline-block", "width": "30%"}),
             ]
             )])
     ],
@@ -568,7 +570,7 @@ def update_g0(n_clicks, month, town, flat, area_type, max_area, min_area,
             customdata=customdata_set,
             hovertemplate='<i>Price:</i> %{y:$,}<br>' +
             '<i>Area:</i> %{customdata[3]:,}<br>' +
-            '<i>Price/Area:</i> %{x:$,}<br>' +
+            '<i>Price/' + price_label + ':</i> %{x:$,}<br>' +
             '<i>Town :</i> %{customdata[0]}<br>' +
             '<i>Street Name:</i> %{customdata[1]}<br>' +
             '<i>Lease Left:</i> %{customdata[2]}',
@@ -577,13 +579,68 @@ def update_g0(n_clicks, month, town, flat, area_type, max_area, min_area,
         )
     )
     fig.update_layout(
-        title=f"Home Prices vs Prices / {price_label}",
+        title=f"[ Home Prices ] VS [ Prices / {price_label} ]",
         yaxis={"title": "Home Prices"},
         xaxis={"title": f"Prices / {price_label}"},
         width=chart_width,
         height=chart_height,
         showlegend=False,
     )
+
+    fig.update_xaxes(showspikes=True)
+    fig.update_yaxes(showspikes=True)
+
+    return fig
+
+
+@callback(Output("g2", "figure"), new_input_list, new_state_list)
+def update_g2(n_clicks, month, town, flat, area_type, max_area, min_area,
+              price_type, max_price, min_price, max_lease, min_lease,
+              street_name, data_json):
+    fdf = df_filter(month, town, flat, area_type, max_area, min_area,
+                    price_type, max_price, min_price, max_lease, min_lease,
+                    street_name, data_json)
+
+    price_area = 'price_sqm'
+    price_label = 'Sq M'
+
+    customdata_set = list(fdf[['price', 'town', 'street_name', 'area_sqm'
+                               ]].to_numpy())
+
+    if area_type != "Sq M":
+        price_area = 'price_sqft'
+        price_label = 'Sq Ft'
+        customdata_set = list(fdf[['price', 'town', 'street_name', 'area_sqft', 
+                                   ]].to_numpy())
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            y=fdf[price_area],  # unchanged
+            x=fdf['lease_yrs'],
+            customdata=customdata_set,
+            hovertemplate='<i>Price/' + price_label + ':</i> %{y:$,}<br>' +
+            '<i>Price:</i> %{customdata[0]:$,}<br>' +
+            '<i>Area:</i> %{customdata[3]:,}<br>' +
+            '<i>Town :</i> %{customdata[1]}<br>' +
+            '<i>Street Name:</i> %{customdata[2]}<br>' +
+            '<i>Lease Left:</i> %{x}',
+            mode='markers',
+            marker_color="rgb(8,81,156)",
+        )
+    )
+    fig.update_layout(
+        title=f"[ Price / {price_label} ] VS [ Lease Left ]",
+        yaxis={"title": f"Price / {price_label}"},
+        xaxis={"title": "Lease Left"},
+        width=chart_width,
+        height=chart_height,
+        showlegend=False,
+    )
+    
+    fig.update_xaxes(showspikes=True)
+    fig.update_yaxes(showspikes=True)
+    
     return fig
 
 
@@ -613,7 +670,7 @@ def update_g1(n_clicks, month, town, flat, area_type, max_area, min_area,
         )
     )
     fig.update_layout(
-        title=f"Home Prices / {price_label}",
+        title=f"[ Home Prices / {price_label} ]",
         yaxis={"title": f"Prices / {price_label}"},
         xaxis={"title": f"{price_label}"},
         width=chart_width,
