@@ -2,7 +2,7 @@
 date: "2022-10-27"
 published: true
 tags:
-  - Public Housing
+  - Public Housing, Million Dollar
 title: Million Dollar Public Homes and how to find them in Singapore
 description: Where are all the million dollar homes in Singapore?
 ---
