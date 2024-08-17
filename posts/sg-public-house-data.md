@@ -20,7 +20,8 @@ diverse price range within the HDB resale market," he said. HDB also noted that
 "the vast majority of resale flats were transacted at a much lower price and
 remained affordable".**"
 
-Here is what I found from my analysis [here](https://sg-housing.onrender.com), with data from data.gov.sg.
+Here is what I found from my analysis [here](https://sg-housing.onrender.com/sg-public-home-trends),
+with data from data.gov.sg.
 
 1. Yes, currently million dollar public homes comprising around 3% of our HDB 
 resale flats sold. 3% out of 100% seems small. However, 4 years ago, in 
