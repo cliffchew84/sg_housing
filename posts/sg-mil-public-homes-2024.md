@@ -76,15 +76,15 @@ million dollar public home transactions, and the location of each million dollar
 location data from OneMap, extracted to my best ability. This map layer used is the 
 [2019 URA Master Plan](https://beta.data.gov.sg/datasets?query=Masterplan+2019&resultId=d_90d86daa5bfaa371668b84fa5f01424f)
 , and is taken from data.gov.sg. 
-<img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnNvaXR1d3F1ZWF6NWJjeGVhcDdrbDZucnF0ODU1OGh3ODcyZHl5aSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WeSHSNGZYdqK45ikRT/giphy.gif" style="width: 850px; height: 550px; object-fit: cover; object-position: center;">
+<img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExOWEweGppbXdrazhidjFxdHNuMDUxempmZzBheGdmejF4eXI1dWVhcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/vjowo3N7e4H43SLaiD/giphy.gif" style="width: 850px; height: 550px; object-fit: cover; object-position: center;">
 To make the differences more clear, I am also the map layers of 2015 and 2024
 ( updated to August ).
 
 **For the entire 2015, we only saw million dollar public homes in the south of Singapore**
-<img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExbW11bm9reWFobnR0MnMwN3RnOG55aTdhN2M2dDkyeWl4M2JhNndkeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/FyYpAVgKEUO7zEPYxH/giphy.gif" style="width: 850px; height: 550px; object-fit: cover; object-position: center;">
+<img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExaDNyNTJvbmdiZWU1YzdpbWcyYTFmank2Zm8zem44eWE2cmU0eHVncSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Gswhl9J1IobOk2VmGM/giphy.gif" style="width: 850px; height: 550px; object-fit: cover; object-position: center;">
 **Even though this map only has data until August 2024, we see continually more 
 million dollar homes spreading into north, east and west regions of Singapore.**
-<img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExcm5sa2w4b3NtNGlmeG9ub3IwaDczcmdrbzd4aXBzNzN6cDVsMnp3YiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/EoFiIUQnqaGRhbCLvL/giphy.gif" style="width: 850px; height: 550px; object-fit: cover; object-position: center;">
+<img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExZDduZHgxdm5jejE3bDZxcTNkN3BmMjV1ajYycmZpc2FxN21zN3NpZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/mlRchZzHxB300XJlxv/giphy.gif" style="width: 850px; height: 550px; object-fit: cover; object-position: center;">
 
 Visually, the heat maps paint a very stark picture on the spread of million dollar 
 public homes across Singapore in the past few years.
