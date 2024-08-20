@@ -122,8 +122,8 @@ willing to accept a lower offer.
 
 ##### Conclusion
 Although the numbers suggest that million dollar public homes are becoming more 
-common in Singapore, even at its peak, only 2.95% of public homes transacted in 
-a month are a million dollars or more. While there many fascination about million 
+common in Singapore, even at its peak, **only around 4% of public homes transacted in 
+a month are a million dollars or more**. While there many fascination about million 
 dollar public homes, from the windfall for home sellers to exorbitantly high price 
 for home buyers, I am interested to see how this trend continues, and to see if 
 the Singapore government will implement more measures to tackle this situation.
