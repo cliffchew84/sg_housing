@@ -4,7 +4,7 @@ published: true
 tags:
   - Public Housing
   - Million Dollar
-title: WIP - Singapore Million Dollar Public Homes - 2024 Analysis Update
+title: Updated - Singapore Million Dollar Public Homes - 2024 Analysis Update
 description: I studied 20 years of Singapore public housing resale data, and found these interesting insights!
 ---
 
@@ -69,40 +69,33 @@ million dollar transactions in 2023** ( ***except Bishan*** ). Bukit Panjang als
 had their first million dollar transaction in 2023. It seems like the **“million 
 dollar home virus”** has continued its spread in 2023.
 
-##### Heat Maps — Spread of million dollar public homes
-I also added several heat maps to show the spread of these million dollar public
-homes across the years. Brighter and redder areas have more million dollar public
-home transactions. To keep things succinct, I am only showing heat maps from
-2015, 2021, 2022 and 2023.
+##### Geospatial Distributions of million dollar public homes
+I also wanted to plot the spatial distributions of these million dollar public
+homes, spanning from 2012 to 2024, August. The darker regions have more 
+million dollar public home transactions, and the location of each million dollar transaction is plotted using
+location data from OneMap, extracted to my best ability. This map layer used is the 
+[2019 URA Master Plan](https://beta.data.gov.sg/datasets?query=Masterplan+2019&resultId=d_90d86daa5bfaa371668b84fa5f01424f)
+, and is taken from data.gov.sg. 
+<img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnNvaXR1d3F1ZWF6NWJjeGVhcDdrbDZucnF0ODU1OGh3ODcyZHl5aSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WeSHSNGZYdqK45ikRT/giphy.gif" style="width: 850px; height: 550px; object-fit: cover; object-position: center;">
+To make the differences more clear, I am also the map layers of 2015 and 2024
+( updated to August ).
 
-{ insert Fig 4 }
+**For the entire 2015, we only saw million dollar public homes in the south of Singapore**
+<img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExbW11bm9reWFobnR0MnMwN3RnOG55aTdhN2M2dDkyeWl4M2JhNndkeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/FyYpAVgKEUO7zEPYxH/giphy.gif" style="width: 850px; height: 550px; object-fit: cover; object-position: center;">
+**Even though this map only has data until August 2024, we see continually more 
+million dollar homes spreading into north, east and west regions of Singapore.**
+<img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExcm5sa2w4b3NtNGlmeG9ub3IwaDczcmdrbzd4aXBzNzN6cDVsMnp3YiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/EoFiIUQnqaGRhbCLvL/giphy.gif" style="width: 850px; height: 550px; object-fit: cover; object-position: center;">
 
-In 2015, we only saw million dollar public homes in the south of Singapore.
-
-{ insert Fig 5 }
-
-By 2021, we see more million dollar homes beyond the south, and into the central
-and west parts of Singapore.
-
-{ insert Fig 6 }
-
-In 2022, million dollar homes continue to spread further into the suburbs,
-to certain north and east regions of Singapore.
-
-{ insert Fig 7 }
-
-Lastly in 2023, we see even more million dollar homes in both the central,
-west and east areas (the spots get redder or bigger). Visually, the heat maps
-paint a very stark picture on the spread of million dollar public homes across
-Singapore in the past few years.
+Visually, the heat maps paint a very stark picture on the spread of million dollar 
+public homes across Singapore in the past few years.
 
 ##### Some ideas
 Despite several government property cooling measures, we continue to see a
 rising number of million dollar public home transactions across different
 parts of Singapore. 
 
-That said, I am not concluding that the Singapore property market is now
-***unaffordable***. Calculating housing affordability requires more work than I
+**That said, I am not concluding that the Singapore property market is now
+*unaffordable***. Calculating housing affordability requires more work than I
 can commit to. Nonetheless, just like how our media likes to continually report
 on million dollar public home transactions, I feel million dollar public homes
 create a psychologically intimidating anchor for many Singaporeans.
@@ -128,10 +121,9 @@ region that were sold for a million dollars, these home sellers will be less
 willing to accept a lower offer.
 
 ##### Conclusion
-In conclusion, although the numbers suggest that million dollar public homes 
-are becoming more common in Singapore, even at its peak, only 2.95% of public
-homes transacted in a month are a million dollars or more. While there many
-fascination about million dollar public homes, from the windfall for home
-sellers to exorbitantly high price for home buyers, I am interested to see
-how this trend continues, and to see if the Singapore government will implement
-more measures to tackle this situation.
+Although the numbers suggest that million dollar public homes are becoming more 
+common in Singapore, even at its peak, only 2.95% of public homes transacted in 
+a month are a million dollars or more. While there many fascination about million 
+dollar public homes, from the windfall for home sellers to exorbitantly high price 
+for home buyers, I am interested to see how this trend continues, and to see if 
+the Singapore government will implement more measures to tackle this situation.
