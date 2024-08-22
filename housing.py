@@ -13,6 +13,33 @@ table_cols = ['month', 'town', 'flat', 'street_name', 'storey_range',
               'lease_left', 'area_sqm', 'area_sqft', 'price_sqm',
               'price_sqft', 'price']
 
+
+[{"field": x, "sortable": True} for x in table_cols]
+
+ag_table_cols = [
+    {"field": 'month', "sortable": True},
+    {"field": 'town', "sortable": True},
+    {"field": 'flat', "sortable": True},
+    {"field": 'street_name', "sortable": True},
+    {"field": 'storey_range', "sortable": True},
+    {"field": 'lease_left', "sortable": True},
+    {"field": 'area_sqm', "sortable": True},
+    {"field": 'area_sqft', "sortable": True},
+    {
+        "field": 'price_sqm', "sortable": True,
+        "valueFormatter": {"function": "d3.format('($,.2f')(params.value)"},
+    },
+    {
+        "field": 'price_sqft', "sortable": True,
+        "valueFormatter": {"function": "d3.format('($,.2f')(params.value)"},
+    },
+    {
+        "field": 'price', "sortable": True,
+        "valueFormatter": {"function": "d3.format('($,.2f')(params.value)"},
+    }
+
+]
+
 # Simple parameter to trigger mongoDB instead of using local storage
 # Get current month and recent periods
 current_mth = datetime.now().date().strftime("%Y-%m")
@@ -136,8 +163,7 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     )
 
     if street_name:
-        df = df.with_columns(pl.col("street_name").str.contains(
-            street_name))
+        df = df.filter(pl.col("street_name").str.contains(street_name.upper()))
 
     df = df.with_columns(
         pl.col("lease_left")
@@ -298,7 +324,7 @@ app.layout = html.Div([
                     dcc.Dropdown(multi=True, options=flat_type_grps,
                          value=flat_type_grps, id="flat"),
                 ], style={"display": "inline-block",
-                          "width": "35%", "padding": "10px"},
+                          "width": "38%", "padding": "10px"},
                 ),
                 html.Div([
                     html.Label("Min Lease [Yrs]"),
@@ -430,10 +456,7 @@ app.layout = html.Div([
                     ),
                     dag.AgGrid(
                         id="price-table",
-                        columnDefs=[
-                            {"field": x, "sortable": True} for x in table_cols
-                        ],
-                        # Change to Polars
+                        columnDefs=ag_table_cols,
                         rowData=df.select(table_cols).to_dicts(),
                         className="ag-theme-balham",
                         columnSize="responsiveSizeToFit",
@@ -506,8 +529,12 @@ def update_table(n_clicks, month, town, flat, area_type, max_area, min_area,
           price_type, max_price, min_price, max_lease, min_lease,
           street_name, records)
 
-    # records = df.shape[0]
-    # return df.to_dict("records")
+    df = df.with_columns(
+        pl.col('area_sqft').round(2),
+        pl.col('price_sqm').round(2),
+        pl.col('price_sqft').round(2),
+        pl.col('price').cast(pl.Float64).round(2),
+    )
     return df.to_dicts()
 
 
@@ -521,58 +548,57 @@ def update_text(n_clicks, month, town, flat, area_type, max_area, min_area,
                     price_type, max_price, min_price, max_lease, min_lease,
                     street_name, data_json)
 
-    # print(df.select("town").unique().to_series())
     records = df.shape[0]
 
-    if price_type == 'Price' and area_type == 'Sq M':
-        price_min = min(df.select("price").to_series())
-        price_max = max(df.select("price").to_series())
+    if records > 0:
+        if price_type == 'Price' and area_type == 'Sq M':
+            price_min = min(df.select("price").to_series())
+            price_max = max(df.select("price").to_series())
 
-        area_min = min(df.select("area_sqm").to_series())
-        area_max = max(df.select("area_sqm").to_series())
+            area_min = min(df.select("area_sqm").to_series())
+            area_max = max(df.select("area_sqm").to_series())
 
-    elif price_type == 'Price' and area_type == 'Sq Feet':
-        price_min = min(df.select("price").to_series())
-        price_max = max(df.select("price").to_series())
+        elif price_type == 'Price' and area_type == 'Sq Feet':
+            price_min = min(df.select("price").to_series())
+            price_max = max(df.select("price").to_series())
 
-        area_min = min(df.select("area_sqft").to_series())
-        area_max = max(df.select("area_sqft").to_series())
+            area_min = min(df.select("area_sqft").to_series())
+            area_max = max(df.select("area_sqft").to_series())
 
-    elif price_type == "Price / Area" and area_type == "Sq M":
-        price_min = min(df.select("price_sqm").to_series())
-        price_max = max(df.select("price_sqm").to_serise())
+        elif price_type == "Price / Area" and area_type == "Sq M":
+            price_min = min(df.select("price_sqm").to_series())
+            price_max = max(df.select("price_sqm").to_serise())
 
-        area_min = min(df.select("area_sqm").to_series())
-        area_max = max(df.select("area_sqm").to_series())
+            area_min = min(df.select("area_sqm").to_series())
+            area_max = max(df.select("area_sqm").to_series())
 
-        price_type = 'Price / Sq M'
+            price_type = 'Price / Sq M'
 
-    elif price_type == "Price / Area" and area_type == "Sq Feet":
-        price_min = min(df.select("price_sqft").to_series())
-        price_max = max(df.select("price_sqft").to_series())
+        elif price_type == "Price / Area" and area_type == "Sq Feet":
+            price_min = min(df.select("price_sqft").to_series())
+            price_max = max(df.select("price_sqft").to_series())
 
-        area_min = min(df.select("area_sqft").to_series())
-        area_max = max(df.select("area_sqft").to_series())
+            area_min = min(df.select("area_sqft").to_series())
+            area_max = max(df.select("area_sqft").to_series())
 
-        price_type = 'Price / Sq Feet'
+            price_type = 'Price / Sq Feet'
 
-    text = f"""<b>You searched : </b>
-    <b>Town</b>: {town} |
-    <b>{price_type}</b>: ${price_min:,} - ${price_max:,} |
-    <b>{area_type}</b>: {area_min:,} - {area_max:,}
-    """
+        text = f"""<b>You searched : </b>
+        <b>Town</b>: {town} |
+        <b>{price_type}</b>: ${price_min:,} - ${price_max:,} |
+        <b>{area_type}</b>: {area_min:,} - {area_max:,}
+        """
 
-    if min_lease and max_lease:
-        text += f" | <b>Lease from</b> {min_lease:,} - {max_lease:,}"
-    elif min_lease:
-        text += f" | <b>Lease >= </b> {min_lease:,}"
-    elif max_lease:
-        text += f" | <b>Lease =< </b> {max_lease:,}"
+        if min_lease and max_lease:
+            text += f" | <b>Lease from</b> {min_lease:,} - {max_lease:,}"
+        elif min_lease:
+            text += f" | <b>Lease >= </b> {min_lease:,}"
+        elif max_lease:
+            text += f" | <b>Lease =< </b> {max_lease:,}"
 
-    if records != 0:
         text += f" | <b>Total records</b>: {records:,}"
     else:
-        text += " | <b>Your search returned no results</b>"
+        text = "<b>Your search returned no results</b>"
 
     return dcc.Markdown(text, dangerously_allow_html=True)
 
@@ -628,7 +654,7 @@ def update_g2(n_clicks, month, town, flat, area_type, max_area, min_area,
     fig.add_trace(
         go.Scatter(
             y=df.select(price_area).to_series(),  # unchanged
-            x=df.select('lease_left').to_series(),
+            x=df.select('year_count').to_series(),
             customdata=label_data,
             hovertemplate='<i>Price/' + price_label + ':</i> %{y:$,}<br>' +
             '<i>Price:</i> %{customdata[0]:$,}<br>' +
@@ -683,7 +709,7 @@ def update_g1(n_clicks, month, town, flat, area_type, max_area, min_area,
         )
     )
     fig.update_layout(
-        title=f"Home {price_label} Distribtions",
+        title=f"Home {price_label} Distributions",
         yaxis={"title": f"{price_label}"},
         width=chart_width,
         height=chart_height,
