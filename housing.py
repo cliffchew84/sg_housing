@@ -1,27 +1,31 @@
 from dash import Dash, html, dcc, Input, Output, callback, State
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import dash_bootstrap_components as dbc
-from utils import data_process as dp
+from datetime import datetime, date
 import plotly.graph_objects as go
-from datetime import datetime
 import dash_ag_grid as dag
+import polars as pl
 import pandas as pd
-import numpy as np
 import warnings
 import requests
 import json
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-table_cols = ['month', 'town', 'housing', 'street_name', 'storey_range',
+table_cols = ['month', 'town', 'flat', 'street_name', 'storey_range',
               'lease_left', 'area_sqm', 'area_sqft', 'price_sqm',
               'price_sqft', 'price']
 
 # Simple parameter to trigger mongoDB instead of using local storage
+# Get current month and recent periods
 current_mth = datetime.now().date().strftime("%Y-%m")
-total_periods = [str(i)[:7] for i in pd.date_range(
-    "2024-01-01", current_mth + "-01", freq='MS').tolist()]
+total_periods = [str(i)[:7] for i in pl.date_range(
+    datetime(2024, 1, 1),
+    datetime.now(),
+    interval='1mo',
+    eager=True).to_list()]
 recent_periods = total_periods[-6:]
 
+# Define columns and URL
 df_cols = ['month', 'town', 'flat_type', 'block', 'street_name',
            'storey_range', 'floor_area_sqm', 'remaining_lease',
            'resale_price']
@@ -40,47 +44,51 @@ def fetch_data_for_period(period):
     }
     response = requests.get(full_url, params=params)
     if response.status_code == 200:
-        return pd.DataFrame(response.json().get("result").get("records"))
+        return pl.DataFrame(response.json().get("result").get("records"))
     else:
-        return pd.DataFrame()  # Return empty DataFrame on error
+        return pl.DataFrame()  # Return empty DataFrame on error
 
 
 # Use ThreadPoolExecutor to fetch data in parallel
-recent_df = pd.DataFrame()
-with ThreadPoolExecutor(max_workers=4) as executor:
+recent_df = pl.DataFrame()
+with ThreadPoolExecutor(max_workers=5) as executor:
     futures = {executor.submit(
         fetch_data_for_period, period): period for period in recent_periods}
 
     for future in as_completed(futures):
         mth_df = future.result()
-        recent_df = pd.concat([recent_df, mth_df], axis=0)
+        recent_df = pl.concat([recent_df, mth_df], how='vertical')
 
 # Data Processing
-df = recent_df.copy()
-df.columns = ['month', 'town', 'flat', 'block', 'street_name',
-              'storey_range', 'area_sqm', 'lease_mths', 'price']
+df = recent_df.clone()
+df.columns = ['month', 'town', 'flat', 'block', 'street_name', 'storey_range', 
+              'area_sqm', 'lease_mths', 'price']
 
-df = dp.process_df_lease_left(df)
-df = dp.process_df_flat(df)
-
-df['storey_range'] = [i.replace(' TO ', '-') for i in df['storey_range']]
-df['area_sqm'] = df['area_sqm'].astype(np.float16)
-df['price'] = df['price'].astype(np.float32)
-
-df = df[df['month'] >= '2024-01']
-df['area_sqft'] = [round(i, 2) for i in df['area_sqm'] * 10.7639]
-df['price_sqm'] = [round(i, 2) for i in df['price'] / df['area_sqm']]
-df['price_sqft'] = [round(i, 2) for i in df['price'] / df['area_sqft']]
-
-df['lease_mths'] = [i.replace(" years", 'y') for i in df['lease_mths']]
-df['lease_mths'] = [i.replace(" months", 'm') for i in df['lease_mths']]
-df['street_name'] = "BLK " + df['block'] + " " + df['street_name']
-df.rename(columns={'flat': 'housing', 'lease_mths': 'lease_left'},
-          inplace=True)
+df = df.with_columns(
+    pl.col('area_sqm').cast(pl.Float32),
+    pl.col('price').cast(pl.Float32),
+).with_columns(
+    (pl.col("area_sqm") * 10.7639).alias('area_sqft'),
+).with_columns(
+    (pl.col("price") / pl.col("area_sqm")).alias('price_sqm'),
+    (pl.col("price") / pl.col('area_sqft')).alias("price_sqft"),
+    ("BLK " + pl.col('block') + " " +
+        pl.col("street_name")).alias("street_name"),
+    pl.col('lease_mths').str.replace(
+        " year", "y").str.replace(
+        " month", "m").str.replace(
+        " years", "y").str.replace(
+        " months", 'm').alias(
+        'lease_mths'),
+    pl.col('flat').str.replace(
+        " ROOM", "RM").str.replace(
+        "EXECUTIVE", 'EC').str.replace(
+        "MULTI-GENERATION", "MG").alias(
+        'flat'),
+    pl.col("storey_range").str.replace(" TO ", "-").alias("storey_range")
+).rename({"lease_mths": "lease_left"}).drop("block")
 df = df[table_cols]
-
 print("Completed data extraction from data.gov.sg")
-
 
 # Initalise App
 app = Dash(
@@ -92,22 +100,20 @@ app = Dash(
     requests_pathname_prefix="/housing/",
 )
 
-towns = df.town.unique().tolist()
+# Chart parameters
+towns = df.select("town").unique().to_series().to_list()
 towns.sort()
 towns = ["All",] + towns
 
-flat_type_grps = df["housing"].unique().tolist()
+flat_type_grps = df.select("flat").unique().to_series().to_list()
 flat_type_grps.sort()
 
-# Data processing for visualisations
-# May wanna use polar for lazy evaluation
+period_grps = df.select("month").unique().to_series().to_list()
+price_max = df.select("price").max().rows()[0][0]
+price_min = df.select("price").min().rows()[0][0]
+area_max = df.select("area_sqm").max().rows()[0][0]
+area_min = df.select("area_sqm").min().rows()[0][0]
 
-df["count"] = 1
-
-period = "month"
-period_grps = df[period].unique().tolist()
-price_max, price_min = df["price"].max(), df["price"].min()
-area_max, area_min = df["area_sqm"].max(), df["area_sqm"].min()
 legend = dict(orientation="h", yanchor="bottom", y=-0.26, xanchor="right", x=1)
 chart_width, chart_height = 500, 450
 
@@ -116,51 +122,84 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
               max_price, min_price, min_lease, max_lease, street_name,
               data_json):
     """Standardised filtering of df for visualisations"""
-    fdf = pd.read_json(data_json, orient="split")
+
+    # Using Pandas and converting it to Polars, as my pl.read_json has issues
+    df_pd = pd.read_json(data_json)
+    dfi = df_pd.__dataframe__()
+    df = pl.from_dataframe(dfi)
+
+    yr = datetime.now().year
+    mth = datetime.now().month
+    selected_mths = pl.date_range(
+        date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
+    selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(month):]]
+
+    df = df.filter(
+        pl.col("month").is_in(selected_mths),
+        pl.col("flat").is_in(flat)
+    )
 
     if street_name:
-        fdf = fdf[fdf.street_name.str.contains(street_name, case=False)]
+        df = df.with_columns(pl.col("street_name").str.contains(
+            street_name))
 
-    current_mth = datetime.now().date().strftime("%Y-%m")
-    selected_mths = [str(i)[:7] for i in pd.date_range(
-        "2024-01-01", current_mth + "-01", freq='MS').tolist()]
-    selected_mths = selected_mths[-int(month):]
+    df = df.with_columns(
+        pl.col("lease_left")
+        .str.split_exact("y", 1)
+        .struct.rename_fields(["year_count", "mth_count"])
+        .alias("fields")
+    ).unnest("fields")
 
-    fdf = fdf[fdf.month.isin(selected_mths)]
-    fdf = fdf[fdf.housing.isin(flat)]
-    fdf['lease_yrs'] = [int(i.split("y")[0]) for i in fdf['lease_left']]
-    if min_lease:
-        fdf = fdf[fdf.lease_yrs <= int(min_lease)]
+    df = df.with_columns(pl.col('year_count').cast(pl.Int32))
 
     if max_lease:
-        fdf = fdf[fdf.lease_yrs >= int(max_lease)]
+        df = df.filter(pl.col("year_count") <= int(max_lease))
+
+    if min_lease:
+        df = df.filter(pl.col("year_count") >= int(min_lease))
 
     area_type = "area" if area_type == "Sq M" else "area_sqft"
     price_type = "price" if price_type == "Price" else "price_sqft"
 
     if town != "All":
-        fdf = fdf[fdf.town == town]
+        df = df.filter(pl.col("town") == town)
 
     if max_price:
-        fdf = fdf[fdf[price_type] <= max_price]
+        df = df.filter(pl.col(price_type) <= max_price)
 
     if min_price:
-        fdf = fdf[fdf[price_type] >= min_price]
+        df = df.filter(pl.col(price_type) >= min_price)
 
     if max_area:
-        fdf = fdf[fdf[area_type] <= max_area]
+        df.filter(pl.col(area_type) <= max_area)
 
     if min_area:
-        fdf = fdf[fdf[area_type] >= min_area]
+        df = df.filter(pl.col(area_type) >= min_area)
 
-    return fdf
+    print("Filter applied")
+    return df
+
+
+def labels_for_charts(df: pl.DataFrame, 
+                      area_type: str,
+                      base_cols = ['price', 'town', 'street_name']):
+    """ Takes pl.DataFrames and returns the parameters for Plotly charts """
+
+    price_area = "price_sqft" if area_type != "Sq M" else "price_sqm"
+    price_label = "Sq Ft" if area_type != "Sq M" else "Sq M"
+
+    area_label = "area_sqm" if area_type != "Sq M" else "area_sqft"
+    base_cols = base_cols + [area_label,]
+    customdata_set = list(df[base_cols].to_numpy())
+
+    return price_area, price_label, customdata_set
 
 
 app.layout = html.Div([
     html.Div(
         id="data-store",
         style={"display": "none"},
-        children=df.to_json(date_format="iso", orient="split"),
+        children=df.write_json(),
     ),
     html.H3(
         children="These are Homes, Truly",
@@ -232,10 +271,9 @@ app.layout = html.Div([
                 1. Area provided by HDB is in square metres. Calculations for
                 square feet are done by taking square metres by 10.7639.
                 2. Lease left is calculated from remaining lease provided by
-                HDB. This data is provided in years and months, and is
-                converted into total remaining months.
-                3. Data is taken from HDB as is. This data source seems to be
-                slower than transactions reported in the media.
+                HDB.
+                3. Data is taken from HDB as is. This data source seems
+                slower that transactions reported in the media.
                 4. Information provided here is only meant for research, and
                 shouldn't be seen as financial advice.""")
             ], style={"textAlign": "left", "color": "#555", "padding": "5px"}),
@@ -328,7 +366,7 @@ app.layout = html.Div([
                     dcc.Dropdown(options=['Price', "Price / Area"],
                          value="Price", id="price_type"),
                 ], style={"display": "flex", "flexDirection": "column",
-                          "width": "14%", "padding": "5px"},
+                          "width": "12%", "padding": "5px"},
                 ),
                 html.Div([
                     html.Label("Min Price | Price Per Area"),
@@ -399,7 +437,8 @@ app.layout = html.Div([
                         columnDefs=[
                             {"field": x, "sortable": True} for x in table_cols
                         ],
-                        rowData=df[table_cols].to_dict("records"),
+                        # Change to Polars
+                        rowData=df.select(table_cols).to_dicts(),
                         className="ag-theme-balham",
                         columnSize="responsiveSizeToFit",
                         dashGridOptions={
@@ -461,16 +500,19 @@ new_state_list = [
 def update_table(n_clicks, month, town, flat, area_type, max_area, min_area,
                  price_type, max_price, min_price, max_lease, min_lease,
                  street_name, data_json):
-    fdf = df_filter(month, town, flat, area_type, max_area, min_area,
+     
+    df = df_filter(month, town, flat, area_type, max_area, min_area,
                     price_type, max_price, min_price, max_lease, min_lease,
                     street_name, data_json)
 
-    records = fdf.shape[0]
+    records = df.shape[0]
     print(month, town, flat, area_type, max_area, min_area,
           price_type, max_price, min_price, max_lease, min_lease,
           street_name, records)
 
-    return fdf.to_dict("records")
+    # records = df.shape[0]
+    # return df.to_dict("records")
+    return df.to_dicts()
 
 
 @callback(Output("dynamic-text", "children"), new_input_list, new_state_list)
@@ -479,92 +521,85 @@ def update_text(n_clicks, month, town, flat, area_type, max_area, min_area,
                 street_name, data_json):
     # Construct dynamic text content based on filter values
 
-    fdf = df_filter(month, town, flat, area_type, max_area, min_area,
+    df = df_filter(month, town, flat, area_type, max_area, min_area,
                     price_type, max_price, min_price, max_lease, min_lease,
                     street_name, data_json)
 
-    records = fdf.shape[0]
+    # print(df.select("town").unique().to_series())
+    records = df.shape[0]
 
     if price_type == 'Price' and area_type == 'Sq M':
-        price_min = fdf.price.min()
-        price_max = fdf.price.max()
+        price_min = min(df.select("price").to_series())
+        price_max = max(df.select("price").to_series())
 
-        area_min = fdf.area_sqm.min()
-        area_max = fdf.area_sqm.max()
+        area_min = min(df.select("area_sqm").to_series())
+        area_max = max(df.select("area_sqm").to_series())
 
     elif price_type == 'Price' and area_type == 'Sq Feet':
-        price_min = fdf.price.min()
-        price_max = fdf.price.max()
+        price_min = min(df.select("price").to_series())
+        price_max = max(df.select("price").to_series())
 
-        area_min = fdf.area_sqft.min()
-        area_max = fdf.area_sqft.max()
+        area_min = min(df.select("area_sqft").to_series())
+        area_max = max(df.select("area_sqft").to_series())
 
     elif price_type == "Price / Area" and area_type == "Sq M":
-        price_min = fdf.price_sqm.min()
-        price_max = fdf.price_sqm.max()
+        price_min = min(df.select("price_sqm").to_series())
+        price_max = max(df.select("price_sqm").to_serise())
 
-        area_min = fdf.area_sqm.min()
-        area_max = fdf.area_sqm.max()
+        area_min = min(df.select("area_sqm").to_series())
+        area_max = max(df.select("area_sqm").to_series())
+
         price_type = 'Price / Sq M'
 
     elif price_type == "Price / Area" and area_type == "Sq Feet":
-        price_min = fdf.price_sqft.min()
-        price_max = fdf.price_sqft.max()
+        price_min = min(df.select("price_sqft").to_series())
+        price_max = max(df.select("price_sqft").to_series())
 
-        area_min = fdf.area_sqft.min()
-        area_max = fdf.area_sqft.max()
+        area_min = min(df.select("area_sqft").to_series())
+        area_max = max(df.select("area_sqft").to_series())
+
         price_type = 'Price / Sq Feet'
 
-    dynamic_text = f"""<b>You searched : </b>
+    text = f"""<b>You searched : </b>
     <b>Town</b>: {town} |
     <b>{price_type}</b>: ${price_min:,} - ${price_max:,} |
     <b>{area_type}</b>: {area_min:,} - {area_max:,}
     """
 
     if min_lease and max_lease:
-        dynamic_text += f" | <b>Lease from</b> {min_lease:,} - {max_lease:,}"
+        text += f" | <b>Lease from</b> {min_lease:,} - {max_lease:,}"
     elif min_lease:
-        dynamic_text += f" | <b>Lease >= </b> {min_lease:,}"
+        text += f" | <b>Lease >= </b> {min_lease:,}"
     elif max_lease:
-        dynamic_text += f" | <b>Lease =< </b> {max_lease:,}"
+        text += f" | <b>Lease =< </b> {max_lease:,}"
 
     if records != 0:
-        dynamic_text += f" | <b>Total records</b>: {records:,}"
+        text += f" | <b>Total records</b>: {records:,}"
     else:
-        dynamic_text += " | <b>Your search created no results</b>"
+        text += " | <b>Your search returned no results</b>"
 
-    return dcc.Markdown(dynamic_text, dangerously_allow_html=True)
+    return dcc.Markdown(text, dangerously_allow_html=True)
 
 
 @callback(Output("g0", "figure"), new_input_list, new_state_list)
 def update_g0(n_clicks, month, town, flat, area_type, max_area, min_area,
               price_type, max_price, min_price, max_lease, min_lease,
               street_name, data_json):
-    fdf = df_filter(month, town, flat, area_type, max_area, min_area,
+    df = df_filter(month, town, flat, area_type, max_area, min_area,
                     price_type, max_price, min_price, max_lease, min_lease,
                     street_name, data_json)
 
-    price_area = 'price_sqm'
-    price_label = 'Sq M'
-
-    customdata_set = list(fdf[['town', 'street_name', 'lease_left', 'area_sqm']
-                              ].to_numpy())
-
-    if area_type != "Sq M":
-        price_area = 'price_sqft'
-        price_label = 'Sq Ft'
-        customdata_set = list(fdf[['town', 'street_name', 'lease_left',
-                                   'area_sqft']].to_numpy())
+    price_area, price_label, label_data = labels_for_charts(df, area_type)
 
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            y=fdf['price'],  # unchanged
-            x=fdf[price_area],
-            customdata=customdata_set,
+            y=df.select('price').to_series(),  # unchanged
+            x=df.select(price_area).to_series(),
+            customdata=label_data,
             hovertemplate='<i>Price:</i> %{y:$,}<br>' +
             '<i>Area:</i> %{customdata[3]:,}<br>' +
-            '<i>Price/' + price_label + ':</i> %{x:$,}<br>' +
+            '<i>Price/Area:</i> %{x:$,}<br>' +
             '<i>Town :</i> %{customdata[0]}<br>' +
             '<i>Street Name:</i> %{customdata[1]}<br>' +
             '<i>Lease Left:</i> %{customdata[2]}',
@@ -573,17 +608,13 @@ def update_g0(n_clicks, month, town, flat, area_type, max_area, min_area,
         )
     )
     fig.update_layout(
-        title=f"[ Home Prices ] VS [ Prices / {price_label} ]",
+        title=f"Home Prices vs Prices / {price_label}",
         yaxis={"title": "Home Prices"},
         xaxis={"title": f"Prices / {price_label}"},
         width=chart_width,
         height=chart_height,
         showlegend=False,
     )
-
-    fig.update_xaxes(showspikes=True)
-    fig.update_yaxes(showspikes=True)
-
     return fig
 
 
@@ -591,28 +622,18 @@ def update_g0(n_clicks, month, town, flat, area_type, max_area, min_area,
 def update_g2(n_clicks, month, town, flat, area_type, max_area, min_area,
               price_type, max_price, min_price, max_lease, min_lease,
               street_name, data_json):
-    fdf = df_filter(month, town, flat, area_type, max_area, min_area,
+    df = df_filter(month, town, flat, area_type, max_area, min_area,
                     price_type, max_price, min_price, max_lease, min_lease,
                     street_name, data_json)
 
-    price_area = 'price_sqm'
-    price_label = 'Sq M'
-
-    customdata_set = list(fdf[['price', 'town', 'street_name', 'area_sqm'
-                               ]].to_numpy())
-
-    if area_type != "Sq M":
-        price_area = 'price_sqft'
-        price_label = 'Sq Ft'
-        customdata_set = list(fdf[['price', 'town', 'street_name', 'area_sqft',
-                                   ]].to_numpy())
+    price_area, price_label, label_data = labels_for_charts(df, area_type)
 
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            y=fdf[price_area],  # unchanged
-            x=fdf['lease_yrs'],
-            customdata=customdata_set,
+            y=df.select(price_area).to_series(),  # unchanged
+            x=df.select('lease_left').to_series(),
+            customdata=label_data,
             hovertemplate='<i>Price/' + price_label + ':</i> %{y:$,}<br>' +
             '<i>Price:</i> %{customdata[0]:$,}<br>' +
             '<i>Area:</i> %{customdata[3]:,}<br>' +
@@ -642,21 +663,18 @@ def update_g2(n_clicks, month, town, flat, area_type, max_area, min_area,
 def update_g1(n_clicks, month, town, flat, area_type, max_area, min_area,
               price_type, max_price, min_price, max_lease, min_lease,
               street_name, data_json):
-    fdf = df_filter(month, town, flat, area_type, max_area, min_area,
+
+    df = df_filter(month, town, flat, area_type, max_area, min_area,
                     price_type, max_price, min_price, max_lease, min_lease,
                     street_name, data_json)
 
-    price_area = 'price_sqm'
-    price_label = 'Sq M'
-
-    if area_type != "Sq M":
-        price_area = 'price_sqft'
-        price_label = 'Sq Ft'
+    price_area = "price_sqft" if area_type != "Sq M" else "price_sqm"
+    price_label = "Sq Ft" if area_type != "Sq M" else "Sq M"
 
     fig = go.Figure()
     fig.add_trace(
         go.Box(
-            y=fdf[price_area],
+            y=df.select(price_area).to_series(),
             name="Selected Homes",
             boxpoints="outliers",
             marker_color="rgb(8,81,156)",
@@ -664,7 +682,7 @@ def update_g1(n_clicks, month, town, flat, area_type, max_area, min_area,
         )
     )
     fig.update_layout(
-        title=f"[ Home Prices / {price_label} ]",
+        title=f"Home Prices / {price_label}",
         yaxis={"title": f"Prices / {price_label}"},
         xaxis={"title": f"{price_label}"},
         width=chart_width,
