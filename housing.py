@@ -175,7 +175,7 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     df = df.with_columns(pl.col('year_count').cast(pl.Int32))
 
     if max_lease:
-        df = df.filter(pl.col("year_count") <= int(max_lease))
+        df = df.filter(pl.col("year_count") >= int(max_lease))
 
     if min_lease:
         df = df.filter(pl.col("year_count") >= int(min_lease))
@@ -198,7 +198,6 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     if min_area:
         df = df.filter(pl.col(area_type) >= min_area)
 
-    print("Filter applied")
     return df
 
 
@@ -223,6 +222,7 @@ app.layout = html.Div([
         style={"display": "none"},
         children=df.write_json(),
     ),
+    dcc.Store(id='filtered-data'),
     html.H3(
         children="These are Homes, Truly",
         style={'font-weight': 'bold', 'font-size': '26px'},
@@ -497,57 +497,62 @@ app.layout = html.Div([
 
 
 # Standardised Dash Input-Output states
-new_input_list = Input('submit-button', 'n_clicks'),
-new_state_list = [
-    State('month', 'value'),
+basic_state_list = [
     State('town', 'value'),
-    State('flat', 'value'),
     State('area_type', 'value'),
+    State('price_type', 'value'),
+    State('max_lease', 'value'),
+    State('min_lease', 'value')
+]
+add_on_state_list = [
+    State('month', 'value'),
+    State('flat', 'value'),
     State('max_area', 'value'),
     State('min_area', 'value'),
-    State('price_type', 'value'),
     State('max_price', 'value'),
     State('min_price', 'value'),
-    State('max_lease', 'value'),
-    State('min_lease', 'value'),
     State('street_name', 'value'),
     State('data-store', 'children')
 ]
+full_state_list = basic_state_list + add_on_state_list
+
+@callback(Output("filtered-data", "data"),
+          Input('submit-button', 'n_clicks'), 
+          full_state_list)
+def filtered_data(n_clicks, town, area_type, price_type, max_lease, min_lease,
+                  month, flat, max_area, min_area, max_price, min_price, 
+                  street_name, data_json):
+
+    print("Running single table filter!")
+    return df_filter(month, town, flat, area_type, max_area, min_area, 
+                     price_type, max_price, min_price, max_lease, min_lease,
+                     street_name, data_json).to_dicts()
 
 
-@callback(Output("price-table", "rowData"), new_input_list, new_state_list)
-def update_table(n_clicks, month, town, flat, area_type, max_area, min_area,
-                 price_type, max_price, min_price, max_lease, min_lease,
-                 street_name, data_json):
-     
-    df = df_filter(month, town, flat, area_type, max_area, min_area,
-                    price_type, max_price, min_price, max_lease, min_lease,
-                    street_name, data_json)
+@callback(Output("price-table", "rowData"), Input('filtered-data', 'data'))
+def update_table(data):
 
-    records = df.shape[0]
-    print(month, town, flat, area_type, max_area, min_area,
-          price_type, max_price, min_price, max_lease, min_lease,
-          street_name, records)
+    try:
+        df = pl.DataFrame(data)
+        records = df.shape[0]
 
-    df = df.with_columns(
-        pl.col('area_sqft').round(2),
-        pl.col('price_sqm').round(2),
-        pl.col('price_sqft').round(2),
-        pl.col('price').cast(pl.Float64).round(2),
-    )
-    return df.to_dicts()
+        df = df.with_columns(
+            pl.col('area_sqft').round(2),
+            pl.col('price_sqm').round(2),
+            pl.col('price_sqft').round(2),
+            pl.col('price').cast(pl.Float64).round(2),
+        )
+        return df.to_dicts()
+    except:
+        return [{}]
 
 
-@callback(Output("dynamic-text", "children"), new_input_list, new_state_list)
-def update_text(n_clicks, month, town, flat, area_type, max_area, min_area,
-                price_type, max_price, min_price, max_lease, min_lease,
-                street_name, data_json):
-    # Construct dynamic text content based on filter values
+@callback(Output("dynamic-text", "children"),
+          Input('filtered-data', 'data'),
+          basic_state_list)
+def update_text(data, town, area_type, price_type, max_lease, min_lease):
 
-    df = df_filter(month, town, flat, area_type, max_area, min_area,
-                    price_type, max_price, min_price, max_lease, min_lease,
-                    street_name, data_json)
-
+    df = pl.DataFrame(data)
     records = df.shape[0]
 
     if records > 0:
@@ -598,124 +603,125 @@ def update_text(n_clicks, month, town, flat, area_type, max_area, min_area,
 
         text += f" | <b>Total records</b>: {records:,}"
     else:
-        text = "<b>Your search returned no results</b>"
+        text = "<b><< YOUR SEARCH HAS NO RESULTS >><br>PLEASE TRY AGAIN</b>"
 
     return dcc.Markdown(text, dangerously_allow_html=True)
 
 
-@callback(Output("g0", "figure"), new_input_list, new_state_list)
-def update_g0(n_clicks, month, town, flat, area_type, max_area, min_area,
-              price_type, max_price, min_price, max_lease, min_lease,
-              street_name, data_json):
-    df = df_filter(month, town, flat, area_type, max_area, min_area,
-                    price_type, max_price, min_price, max_lease, min_lease,
-                    street_name, data_json)
+@callback(Output("g0", "figure"),
+          Input('filtered-data', 'data'),
+          basic_state_list)
+def update_g0(data, town, area_type, price_type, max_lease, min_lease):
 
-    price_area, price_label, label_data = labels_for_charts(df, area_type)
+    try:
+        df = pl.DataFrame(data)
+        price_area, price_label, label_data = labels_for_charts(df, area_type)
 
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            y=df.select('price').to_series(),  # unchanged
-            x=df.select(price_area).to_series(),
-            customdata=label_data,
-            hovertemplate='<i>Price:</i> %{y:$,}<br>' +
-            '<i>Area:</i> %{customdata[3]:,}<br>' +
-            '<i>Price/Area:</i> %{x:$,}<br>' +
-            '<i>Town :</i> %{customdata[0]}<br>' +
-            '<i>Street Name:</i> %{customdata[1]}<br>' +
-            '<i>Lease Left:</i> %{customdata[2]}',
-            mode='markers',
-            marker_color="rgb(8,81,156)",
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                y=df.select('price').to_series(),  # unchanged
+                x=df.select(price_area).to_series(),
+                customdata=label_data,
+                hovertemplate='<i>Price:</i> %{y:$,}<br>' +
+                '<i>Area:</i> %{customdata[3]:,}<br>' +
+                '<i>Price/Area:</i> %{x:$,}<br>' +
+                '<i>Town :</i> %{customdata[0]}<br>' +
+                '<i>Street Name:</i> %{customdata[1]}<br>' +
+                '<i>Lease Left:</i> %{customdata[2]}',
+                mode='markers',
+                marker_color="rgb(8,81,156)",
+            )
         )
-    )
-    fig.update_layout(
-        title=f"Home Prices vs Prices / {price_label}",
-        yaxis={"title": "Home Prices"},
-        xaxis={"title": f"Prices / {price_label}"},
-        width=chart_width,
-        height=chart_height,
-        showlegend=False,
-    )
-    return fig
-
-
-@callback(Output("g2", "figure"), new_input_list, new_state_list)
-def update_g2(n_clicks, month, town, flat, area_type, max_area, min_area,
-              price_type, max_price, min_price, max_lease, min_lease,
-              street_name, data_json):
-    df = df_filter(month, town, flat, area_type, max_area, min_area,
-                    price_type, max_price, min_price, max_lease, min_lease,
-                    street_name, data_json)
-
-    price_area, price_label, label_data = labels_for_charts(df, area_type)
-
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            y=df.select(price_area).to_series(),  # unchanged
-            x=df.select('year_count').to_series(),
-            customdata=label_data,
-            hovertemplate='<i>Price/' + price_label + ':</i> %{y:$,}<br>' +
-            '<i>Price:</i> %{customdata[0]:$,}<br>' +
-            '<i>Area:</i> %{customdata[3]:,}<br>' +
-            '<i>Town :</i> %{customdata[1]}<br>' +
-            '<i>Street Name:</i> %{customdata[2]}<br>' +
-            '<i>Lease Left:</i> %{x}',
-            mode='markers',
-            marker_color="rgb(8,81,156)",
+        fig.update_layout(
+            title=f"Home Prices vs Prices / {price_label}",
+            yaxis={"title": "Home Prices"},
+            xaxis={"title": f"Prices / {price_label}"},
+            width=chart_width,
+            height=chart_height,
+            showlegend=False,
         )
-    )
-    fig.update_layout(
-        title=f"[ Price / {price_label} ] VS [ Lease Left ]",
-        yaxis={"title": f"Price / {price_label}"},
-        xaxis={"title": "Lease Left"},
-        width=chart_width,
-        height=chart_height,
-        showlegend=False,
-    )
-
-    fig.update_xaxes(showspikes=True)
-    fig.update_yaxes(showspikes=True)
-
-    return fig
+        return fig
+    except:
+        return go.Figure()
 
 
-@callback(Output("g1", "figure"), new_input_list, new_state_list)
-def update_g1(n_clicks, month, town, flat, area_type, max_area, min_area,
-              price_type, max_price, min_price, max_lease, min_lease,
-              street_name, data_json):
+@callback(Output("g2", "figure"),
+          Input('filtered-data', 'data'),
+          basic_state_list)
+def update_g2(data, town, area_type, price_type, max_lease, min_lease):
+    try:
+        df = pl.DataFrame(data)
+        price_area, price_label, label_data = labels_for_charts(df, area_type)
 
-    df = df_filter(month, town, flat, area_type, max_area, min_area,
-                    price_type, max_price, min_price, max_lease, min_lease,
-                    street_name, data_json)
-
-    if price_type == "Price":
-        price_value = price_type.lower()
-        price_label = "Price"
-
-    else:
-        price_value = "price_sqft" if area_type != "Sq M" else "price_sqm"
-        price_label = "Price / Sq Ft" if area_type != "Sq M" else "Price / Sq M"
-
-    fig = go.Figure()
-    fig.add_trace(
-        go.Box(
-            y=df.select(price_value).to_series(),
-            name="Selected Homes",
-            boxpoints="outliers",
-            marker_color="rgb(8,81,156)",
-            line_color="rgb(8,81,156)",
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                y=df.select(price_area).to_series(),  # unchanged
+                x=df.select('year_count').to_series(),
+                customdata=label_data,
+                hovertemplate='<i>Price/' + price_label + ':</i> %{y:$,}<br>' +
+                '<i>Price:</i> %{customdata[0]:$,}<br>' +
+                '<i>Area:</i> %{customdata[3]:,}<br>' +
+                '<i>Town :</i> %{customdata[1]}<br>' +
+                '<i>Street Name:</i> %{customdata[2]}<br>' +
+                '<i>Lease Left:</i> %{x}',
+                mode='markers',
+                marker_color="rgb(8,81,156)",
+            )
         )
-    )
-    fig.update_layout(
-        title=f"Home {price_label} Distributions",
-        yaxis={"title": f"{price_label}"},
-        width=chart_width,
-        height=chart_height,
-        showlegend=False,
-    )
-    return fig
+        fig.update_layout(
+            title=f"[ Price / {price_label} ] VS [ Lease Left ]",
+            yaxis={"title": f"Price / {price_label}"},
+            xaxis={"title": "Lease Left"},
+            width=chart_width,
+            height=chart_height,
+            showlegend=False,
+        )
+
+        fig.update_xaxes(showspikes=True)
+        fig.update_yaxes(showspikes=True)
+
+        return fig
+    except:
+        return go.Figure()
+
+
+@callback(Output("g1", "figure"),
+          Input('filtered-data', 'data'),
+          basic_state_list)
+def update_g1(data, town, area_type, price_type, max_lease, min_lease):
+
+    try:
+        df = pl.DataFrame(data)
+        if price_type == "Price":
+            price_value = price_type.lower()
+            price_label = "Price"
+
+        else:
+            price_value = "price_sqft" if area_type != "Sq M" else "price_sqm"
+            price_label = "Price / Sq Ft" if area_type != "Sq M" else "Price / Sq M"
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Box(
+                y=df.select(price_value).to_series(),
+                name="Selected Homes",
+                boxpoints="outliers",
+                marker_color="rgb(8,81,156)",
+                line_color="rgb(8,81,156)",
+            )
+        )
+        fig.update_layout(
+            title=f"Home {price_label} Distributions",
+            yaxis={"title": f"{price_label}"},
+            width=chart_width,
+            height=chart_height,
+            showlegend=False,
+        )
+        return fig
+    except:
+        return go.Figure()
 
 
 @callback(
