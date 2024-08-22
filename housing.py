@@ -668,13 +668,18 @@ def update_g1(n_clicks, month, town, flat, area_type, max_area, min_area,
                     price_type, max_price, min_price, max_lease, min_lease,
                     street_name, data_json)
 
-    price_area = "price_sqft" if area_type != "Sq M" else "price_sqm"
-    price_label = "Sq Ft" if area_type != "Sq M" else "Sq M"
+    if price_type == "Price":
+        price_value = price_type.lower()
+        price_label = "Price"
+
+    else:
+        price_value = "price_sqft" if area_type != "Sq M" else "price_sqm"
+        price_label = "Price / Sq Ft" if area_type != "Sq M" else "Price / Sq M"
 
     fig = go.Figure()
     fig.add_trace(
         go.Box(
-            y=df.select(price_area).to_series(),
+            y=df.select(price_value).to_series(),
             name="Selected Homes",
             boxpoints="outliers",
             marker_color="rgb(8,81,156)",
@@ -682,9 +687,8 @@ def update_g1(n_clicks, month, town, flat, area_type, max_area, min_area,
         )
     )
     fig.update_layout(
-        title=f"Home Prices / {price_label}",
-        yaxis={"title": f"Prices / {price_label}"},
-        xaxis={"title": f"{price_label}"},
+        title=f"Home {price_label} Distribtions",
+        yaxis={"title": f"{price_label}"},
         width=chart_width,
         height=chart_height,
         showlegend=False,
