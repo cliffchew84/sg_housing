@@ -135,15 +135,8 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     if max_lease:
         fdf = fdf[fdf.lease_yrs >= int(max_lease)]
 
-    if area_type == "Sq M":
-        area_type = "area"
-    else:
-        area_type = "area_sqft"
-
-    if price_type == "Price":
-        price_type = "price"
-    else:
-        price_type = "price_sqft"
+    area_type = "area" if area_type == "Sq M" else "area_sqft"
+    price_type = "price" if price_type == "Price" else "price_sqft"
 
     if town != "All":
         fdf = fdf[fdf.town == town]
