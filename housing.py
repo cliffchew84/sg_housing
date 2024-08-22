@@ -5,11 +5,9 @@ from datetime import datetime, date
 import plotly.graph_objects as go
 import dash_ag_grid as dag
 import polars as pl
-import pandas as pd
-import warnings
+import numpy as np
 import requests
 import json
-warnings.simplefilter(action="ignore", category=FutureWarning)
 
 table_cols = ['month', 'town', 'flat', 'street_name', 'storey_range',
               'lease_left', 'area_sqm', 'area_sqft', 'price_sqm',
@@ -124,9 +122,7 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     """Standardised filtering of df for visualisations"""
 
     # Using Pandas and converting it to Polars, as my pl.read_json has issues
-    df_pd = pd.read_json(data_json)
-    dfi = df_pd.__dataframe__()
-    df = pl.from_dataframe(dfi)
+    df = pl.DataFrame(json.loads(data_json))
 
     yr = datetime.now().year
     mth = datetime.now().month
