@@ -13,9 +13,6 @@ table_cols = ['month', 'town', 'flat', 'street_name', 'storey_range',
               'lease_left', 'area_sqm', 'area_sqft', 'price_sqm',
               'price_sqft', 'price']
 
-
-[{"field": x, "sortable": True} for x in table_cols]
-
 ag_table_cols = [
     {"field": 'month', "sortable": True},
     {"field": 'town', "sortable": True},
@@ -37,10 +34,8 @@ ag_table_cols = [
         "field": 'price', "sortable": True,
         "valueFormatter": {"function": "d3.format('($,.2f')(params.value)"},
     }
-
 ]
 
-# Simple parameter to trigger mongoDB instead of using local storage
 # Get current month and recent periods
 current_mth = datetime.now().date().strftime("%Y-%m")
 total_periods = [str(i)[:7] for i in pl.date_range(
@@ -51,7 +46,7 @@ total_periods = [str(i)[:7] for i in pl.date_range(
 recent_periods = total_periods[-6:]
 
 # Define columns and URL
-df_cols = ['month', 'town', 'flat_type', 'block', 'street_name',
+df_cols = ['month', 'town', 'flat_type', 'block', 'street_name', 
            'storey_range', 'floor_area_sqm', 'remaining_lease',
            'resale_price']
 param_fields = ",".join(df_cols)
@@ -100,16 +95,13 @@ df = df.with_columns(
     ("BLK " + pl.col('block') + " " +
         pl.col("street_name")).alias("street_name"),
     pl.col('lease_mths').str.replace(
+        "s", "").str.replace(
         " year", "y").str.replace(
-        " month", "m").str.replace(
-        " years", "y").str.replace(
-        " months", 'm').alias(
-        'lease_mths'),
+        " month", "m").alias('lease_mths'),
     pl.col('flat').str.replace(
         " ROOM", "RM").str.replace(
         "EXECUTIVE", 'EC').str.replace(
-        "MULTI-GENERATION", "MG").alias(
-        'flat'),
+        "MULTI-GENERATION", "MG").alias('flat'),
     pl.col("storey_range").str.replace(" TO ", "-").alias("storey_range")
 ).rename({"lease_mths": "lease_left"}).drop("block")
 df = df[table_cols]
@@ -146,7 +138,7 @@ chart_width, chart_height = 500, 450
 def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
               max_price, min_price, min_lease, max_lease, street_name,
               data_json):
-    """Standardised filtering of df for visualisations"""
+    """Filter Polars DataFrame for Viz, based on inputs"""
 
     # Using Pandas and converting it to Polars, as my pl.read_json has issues
     df = pl.DataFrame(json.loads(data_json))
@@ -204,7 +196,9 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
 def labels_for_charts(df: pl.DataFrame, 
                       area_type: str,
                       base_cols = ['price', 'town', 'street_name']):
-    """ Takes pl.DataFrames and returns the parameters for Plotly charts """
+    """ Takes pl.DataFrames and returns parameters for Plotly charts
+        base_cols are the parameters I want to show on hovertemplate
+    """
 
     price_area = "price_sqft" if area_type != "Sq M" else "price_sqm"
     price_label = "Sq Ft" if area_type != "Sq M" else "Sq M"
@@ -531,7 +525,7 @@ def filtered_data(n_clicks, town, area_type, price_type, max_lease, min_lease,
 
 @callback(Output("price-table", "rowData"), Input('filtered-data', 'data'))
 def update_table(data):
-
+    """ Function to show transactions in the table output """
     try:
         df = pl.DataFrame(data)
         records = df.shape[0]
@@ -551,6 +545,7 @@ def update_table(data):
           Input('filtered-data', 'data'),
           basic_state_list)
 def update_text(data, town, area_type, price_type, max_lease, min_lease):
+    """ Update summary text for searched output """
 
     df = pl.DataFrame(data)
     records = df.shape[0]
@@ -612,7 +607,6 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
           Input('filtered-data', 'data'),
           basic_state_list)
 def update_g0(data, town, area_type, price_type, max_lease, min_lease):
-
     try:
         df = pl.DataFrame(data)
         price_area, price_label, label_data = labels_for_charts(df, area_type)
@@ -641,6 +635,10 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
             height=chart_height,
             showlegend=False,
         )
+
+        fig.update_xaxes(showspikes=True)
+        fig.update_yaxes(showspikes=True)
+
         return fig
     except:
         return go.Figure()
