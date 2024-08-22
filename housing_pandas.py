@@ -1,10 +1,10 @@
 from dash import Dash, html, dcc, Input, Output, callback, State
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import dash_bootstrap_components as dbc
+from utils import data_process as dp
 import plotly.graph_objects as go
 from datetime import datetime
 import dash_ag_grid as dag
-import polars as pl
 import pandas as pd
 import numpy as np
 import warnings
@@ -17,16 +17,11 @@ table_cols = ['month', 'town', 'housing', 'street_name', 'storey_range',
               'price_sqft', 'price']
 
 # Simple parameter to trigger mongoDB instead of using local storage
-# Get current month and recent periods
 current_mth = datetime.now().date().strftime("%Y-%m")
-total_periods = [str(i)[:7] for i in pl.date_range(
-    datetime(2024, 1, 1),
-    datetime.now(),
-    interval='1mo',
-    eager=True).to_list()]
+total_periods = [str(i)[:7] for i in pd.date_range(
+    "2024-01-01", current_mth + "-01", freq='MS').tolist()]
 recent_periods = total_periods[-6:]
 
-# Define columns and URL
 df_cols = ['month', 'town', 'flat_type', 'block', 'street_name',
            'storey_range', 'floor_area_sqm', 'remaining_lease',
            'resale_price']
@@ -45,25 +40,28 @@ def fetch_data_for_period(period):
     }
     response = requests.get(full_url, params=params)
     if response.status_code == 200:
-        return pl.DataFrame(response.json().get("result").get("records"))
+        return pd.DataFrame(response.json().get("result").get("records"))
     else:
-        return pl.DataFrame()  # Return empty DataFrame on error
+        return pd.DataFrame()  # Return empty DataFrame on error
 
 
 # Use ThreadPoolExecutor to fetch data in parallel
-recent_df = pl.DataFrame()
-with ThreadPoolExecutor(max_workers=5) as executor:
+recent_df = pd.DataFrame()
+with ThreadPoolExecutor(max_workers=4) as executor:
     futures = {executor.submit(
         fetch_data_for_period, period): period for period in recent_periods}
 
     for future in as_completed(futures):
         mth_df = future.result()
-        recent_df = pl.concat([recent_df, mth_df], how='vertical')
+        recent_df = pd.concat([recent_df, mth_df], axis=0)
 
 # Data Processing
 df = recent_df.copy()
 df.columns = ['month', 'town', 'flat', 'block', 'street_name',
               'storey_range', 'area_sqm', 'lease_mths', 'price']
+
+df = dp.process_df_lease_left(df)
+df = dp.process_df_flat(df)
 
 df['storey_range'] = [i.replace(' TO ', '-') for i in df['storey_range']]
 df['area_sqm'] = df['area_sqm'].astype(np.float16)
@@ -137,15 +135,8 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     if max_lease:
         fdf = fdf[fdf.lease_yrs >= int(max_lease)]
 
-    if area_type == "Sq M":
-        area_type = "area"
-    else:
-        area_type = "area_sqft"
-
-    if price_type == "Price":
-        price_type = "price"
-    else:
-        price_type = "price_sqft"
+    area_type = "area" if area_type == "Sq M" else "area_sqft"
+    price_type = "price" if price_type == "Price" else "price_sqft"
 
     if town != "All":
         fdf = fdf[fdf.town == town]
@@ -241,9 +232,10 @@ app.layout = html.Div([
                 1. Area provided by HDB is in square metres. Calculations for
                 square feet are done by taking square metres by 10.7639.
                 2. Lease left is calculated from remaining lease provided by
-                HDB.
-                3. Data is taken from HDB as is. This data source seems
-                slower that transactions reported in the media.
+                HDB. This data is provided in years and months, and is
+                converted into total remaining months.
+                3. Data is taken from HDB as is. This data source seems to be
+                slower than transactions reported in the media.
                 4. Information provided here is only meant for research, and
                 shouldn't be seen as financial advice.""")
             ], style={"textAlign": "left", "color": "#555", "padding": "5px"}),
@@ -336,7 +328,7 @@ app.layout = html.Div([
                     dcc.Dropdown(options=['Price', "Price / Area"],
                          value="Price", id="price_type"),
                 ], style={"display": "flex", "flexDirection": "column",
-                          "width": "12%", "padding": "5px"},
+                          "width": "14%", "padding": "5px"},
                 ),
                 html.Div([
                     html.Label("Min Price | Price Per Area"),
@@ -427,9 +419,11 @@ app.layout = html.Div([
         dcc.Loading([
             html.Div([
                 dcc.Graph(id="g0", style={
-                    "display": "inline-block", "width": "50%"}),
+                    "display": "inline-block", "width": "30%"}),
+                dcc.Graph(id="g2", style={
+                    "display": "inline-block", "width": "30%"}),
                 dcc.Graph(id="g1", style={
-                    "display": "inline-block", "width": "50%"}),
+                    "display": "inline-block", "width": "30%"}),
             ]
             )])
     ],
@@ -570,7 +564,7 @@ def update_g0(n_clicks, month, town, flat, area_type, max_area, min_area,
             customdata=customdata_set,
             hovertemplate='<i>Price:</i> %{y:$,}<br>' +
             '<i>Area:</i> %{customdata[3]:,}<br>' +
-            '<i>Price/Area:</i> %{x:$,}<br>' +
+            '<i>Price/' + price_label + ':</i> %{x:$,}<br>' +
             '<i>Town :</i> %{customdata[0]}<br>' +
             '<i>Street Name:</i> %{customdata[1]}<br>' +
             '<i>Lease Left:</i> %{customdata[2]}',
@@ -579,13 +573,68 @@ def update_g0(n_clicks, month, town, flat, area_type, max_area, min_area,
         )
     )
     fig.update_layout(
-        title=f"Home Prices vs Prices / {price_label}",
+        title=f"[ Home Prices ] VS [ Prices / {price_label} ]",
         yaxis={"title": "Home Prices"},
         xaxis={"title": f"Prices / {price_label}"},
         width=chart_width,
         height=chart_height,
         showlegend=False,
     )
+
+    fig.update_xaxes(showspikes=True)
+    fig.update_yaxes(showspikes=True)
+
+    return fig
+
+
+@callback(Output("g2", "figure"), new_input_list, new_state_list)
+def update_g2(n_clicks, month, town, flat, area_type, max_area, min_area,
+              price_type, max_price, min_price, max_lease, min_lease,
+              street_name, data_json):
+    fdf = df_filter(month, town, flat, area_type, max_area, min_area,
+                    price_type, max_price, min_price, max_lease, min_lease,
+                    street_name, data_json)
+
+    price_area = 'price_sqm'
+    price_label = 'Sq M'
+
+    customdata_set = list(fdf[['price', 'town', 'street_name', 'area_sqm'
+                               ]].to_numpy())
+
+    if area_type != "Sq M":
+        price_area = 'price_sqft'
+        price_label = 'Sq Ft'
+        customdata_set = list(fdf[['price', 'town', 'street_name', 'area_sqft',
+                                   ]].to_numpy())
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            y=fdf[price_area],  # unchanged
+            x=fdf['lease_yrs'],
+            customdata=customdata_set,
+            hovertemplate='<i>Price/' + price_label + ':</i> %{y:$,}<br>' +
+            '<i>Price:</i> %{customdata[0]:$,}<br>' +
+            '<i>Area:</i> %{customdata[3]:,}<br>' +
+            '<i>Town :</i> %{customdata[1]}<br>' +
+            '<i>Street Name:</i> %{customdata[2]}<br>' +
+            '<i>Lease Left:</i> %{x}',
+            mode='markers',
+            marker_color="rgb(8,81,156)",
+        )
+    )
+    fig.update_layout(
+        title=f"[ Price / {price_label} ] VS [ Lease Left ]",
+        yaxis={"title": f"Price / {price_label}"},
+        xaxis={"title": "Lease Left"},
+        width=chart_width,
+        height=chart_height,
+        showlegend=False,
+    )
+
+    fig.update_xaxes(showspikes=True)
+    fig.update_yaxes(showspikes=True)
+
     return fig
 
 
@@ -615,7 +664,7 @@ def update_g1(n_clicks, month, town, flat, area_type, max_area, min_area,
         )
     )
     fig.update_layout(
-        title=f"Home Prices / {price_label}",
+        title=f"[ Home Prices / {price_label} ]",
         yaxis={"title": f"Prices / {price_label}"},
         xaxis={"title": f"{price_label}"},
         width=chart_width,
