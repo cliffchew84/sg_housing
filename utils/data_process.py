@@ -1,16 +1,16 @@
 import geopy.distance
-import pandas as pd
+import polars as pl
 import numpy as np
 
 
-def create_mdb_query_w_df_cols(df: pd.DataFrame):
+def create_mdb_query_w_df_cols(df: pl.DataFrame):
     """
     Creates mongoDB query from dataframe,
     list or string of known column names
     """
 
-    if type(df) is pd.DataFrame:
-        col_names = df.columns.tolist()
+    if type(df) is pl.DataFrame:
+        col_names = df.columns
     elif type(df) is list:
         col_names = df
     elif type(df) is str:
@@ -26,16 +26,19 @@ def create_mdb_query_w_df_cols(df: pd.DataFrame):
     return col_dict, col_filter
 
 
-def table_select_from_pt(df: pd.DataFrame,
+def table_select_from_pt(df: pl.DataFrame,
                          loc_ll: tuple,
                          select=True,
-                         radius=1000) -> pd.DataFrame:
+                         radius=1000) -> pl.DataFrame:
     """ Takes a Tuple Lat-Long input, a set of tables with Lat-Longs,
     and filters for records that are included or excluded by a radius
     distance
     """
+    
+    # TODO - Fix to fully polars dataframe 
+    df_lat = df[.select('LATITUDE').to_series().to_list()
+    df_long = df.select('LONGITUDE').to_series().to_list()
 
-    df_lat, df_long = df['LATITUDE'].tolist(), df['LONGITUDE'].tolist()
     df['dist'] = [geopy.distance.geodesic(
         (float(i), float(j)), loc_ll).m for i, j in zip(df_lat, df_long)]
 
@@ -45,38 +48,3 @@ def table_select_from_pt(df: pd.DataFrame,
         selected_df = df[df['dist'] > radius].reset_index(drop=True)
 
     return selected_df
-
-
-def process_df_lease_left(df: pd.DataFrame) -> pd.DataFrame:
-    """ Process """
-    if 'lease_left' in df.columns.tolist():
-        df['lease_left'] = [i.replace('s', '') for i in df['lease_left']]
-        df['lease_left'] = [i.replace(' year', 'y') for i in df['lease_left']]
-        df['lease_left'] = [i.replace(' month', 'm') for i in df['lease_left']]
-
-        df['lease_yrs'] = [
-            int(i[0])*12 for i in df['lease_left'].str.split("y")]
-
-        df['lease_mths'] = [0 if i[-1].strip().replace('m', '') == '' else int(
-            i[-1].strip().replace('m', '')) for i in df['lease_left'].str.split("y")]
-
-        df['total_lease'] = df['lease_yrs'] + df['lease_mths']
-
-        del df['lease_left']
-        del df['lease_yrs']
-        del df['lease_mths']
-
-        df.rename(columns={'total_lease': 'lease_mths'}, inplace=True)
-        df['lease_mths'] = df['lease_mths'].astype(np.int32)
-
-    return df
-
-
-def process_df_flat(df: pd.DataFrame) -> pd.DataFrame:
-    if "flat" in df.columns.tolist():
-        df['flat'] = [i.replace(" ROOM", "R") for i in df['flat']]
-        df['flat'] = [i.replace("EXECUTIVE", "EC") for i in df['flat']]
-        df['flat'] = [i.replace("MULTI-GENERATION", "MG") for i in df['flat']]
-        df['flat'] = df['flat'].astype(str)
-
-    return df
