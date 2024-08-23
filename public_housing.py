@@ -250,10 +250,9 @@ app.layout = html.Div([
         research on your phone will be such a pain!**
 
         *Also, if you are interested general Singapore public housing resale
-        market trends of the past few years, visit my other dashboard @ [Public
-        Home Trends](https://sg-housing.onrender.com/sg-public-home-trends),
-        where I share broader public housing resale trends, outliers and price
-        category breakdowns.*""",
+        market trends of the past few years, visit my other dashboard @ **Public
+        Home Trends ( Above )**, where I share broader public housing resale 
+        trends, outliers and price category breakdowns.*""",
         className="px-4",
     ),
     dbc.Row([
