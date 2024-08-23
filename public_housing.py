@@ -21,7 +21,10 @@ ag_table_cols = [
     {"field": 'storey_range', "sortable": True},
     {"field": 'lease_left', "sortable": True},
     {"field": 'area_sqm', "sortable": True},
-    {"field": 'area_sqft', "sortable": True},
+    {
+        "field": 'area_sqft', "sortable": True,
+        "valueFormatter": {"function": "d3.format('(,.2f')(params.value)"},
+    },
     {
         "field": 'price_sqm', "sortable": True,
         "valueFormatter": {"function": "d3.format('($,.2f')(params.value)"},
@@ -114,7 +117,7 @@ app = Dash(
         {'src': 'https://cdn.tailwindcss.com'},
         dbc.themes.BOOTSTRAP,
     ],
-    requests_pathname_prefix="/housing/",
+    requests_pathname_prefix="/public_housing/",
 )
 
 # Chart parameters
@@ -138,6 +141,25 @@ yr = datetime.now().year
 mth = datetime.now().month
 selected_mths = pl.date_range(
     date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
+
+
+def convert_price_area(price_type, area_type):
+    """ Convert price and area inputs into labels """ 
+    if area_type == "Sq M":
+        area_type = "area_sqm"
+    else:
+        area_type = "area_sqft"
+
+    if price_type == 'Price': 
+        price_type = "price"
+    else:
+        if area_type == "area_sqm":
+            price_type = "price_sqm"
+        else:
+            price_type = 'price_sqft'
+
+    return price_type, area_type
+
 
 def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
               max_price, min_price, min_lease, max_lease, street_name, yr, mth,
@@ -172,8 +194,12 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     if min_lease:
         df = df.filter(pl.col("year_count") >= int(min_lease))
 
-    area_type = "area" if area_type == "Sq M" else "area_sqft"
-    price_type = "price" if price_type == "Price" else "price_sqft"
+    price_type, area_type = convert_price_area(price_type, area_type)
+
+    # if area_type == 'area_sqft': 
+    #     df = df.drop("price_sqm", 'area_sqm')
+    # else:
+    #     df = df.drop('price_sqft', "area_sqft")
 
     if town != "All":
         df = df.filter(pl.col("town") == town)
@@ -191,23 +217,6 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
         df = df.filter(pl.col(area_type) >= min_area)
 
     return df
-
-
-def labels_for_charts(df: pl.DataFrame, 
-                      area_type: str,
-                      base_cols = ['price', 'town', 'street_name']):
-    """ Takes pl.DataFrames and returns parameters for Plotly charts
-        base_cols are the parameters I want to show on hovertemplate
-    """
-
-    price_area = "price_sqft" if area_type != "Sq M" else "price_sqm"
-    price_label = "Sq Ft" if area_type != "Sq M" else "Sq M"
-
-    area_label = "area_sqm" if area_type != "Sq M" else "area_sqft"
-    base_cols = base_cols + [area_label,]
-    customdata_set = list(df[base_cols].to_numpy())
-
-    return price_area, price_label, customdata_set
 
 
 app.layout = html.Div([
@@ -314,11 +323,11 @@ app.layout = html.Div([
                           "width": "18%", "padding": "10px"},
                 ),
                 html.Div([
-                    html.Label("Housing"),
+                    html.Label("Flat"),
                     dcc.Dropdown(multi=True, options=flat_type_grps,
                          value=flat_type_grps, id="flat"),
                 ], style={"display": "inline-block",
-                          "width": "38%", "padding": "10px"},
+                          "width": "40%", "padding": "10px"},
                 ),
                 html.Div([
                     html.Label("Min Lease [Yrs]"),
@@ -350,7 +359,7 @@ app.layout = html.Div([
             html.Div([
                 html.Div([
                     html.Label("Sq Feet | Sq M"),
-                    html.Div(dcc.Dropdown(options=['Sq M', "Sq Feet"],
+                    html.Div(dcc.Dropdown(options=['Sq Feet', "Sq M"],
                                           value="Sq Feet", id="area_type")),
                 ], style={"display": "flex", "flexDirection": "column",
                           "width": "12%", "padding": "10px"},
@@ -378,14 +387,14 @@ app.layout = html.Div([
                           "width": "12%", "padding": "5px"},
                 ),
                 html.Div([
-                    html.Label("Price | Price Per Area"),
+                    html.Label("Price | Price / Area"),
                     dcc.Dropdown(options=['Price', "Price / Area"],
                          value="Price", id="price_type"),
                 ], style={"display": "flex", "flexDirection": "column",
                           "width": "14%", "padding": "5px"},
                 ),
                 html.Div([
-                    html.Label("Min Price | Price Per Area"),
+                    html.Label("Min [ Price | Price / Area ]"),
                     dcc.Input(type="number",
                               placeholder="Add No.",
                               style={"display": "inline-block",
@@ -396,7 +405,7 @@ app.layout = html.Div([
                           "width": "15%", "padding": "5px"},
                 ),
                 html.Div([
-                    html.Label("Max Price | Price / Area"),
+                    html.Label("Max [ Price | Price / Area ]"),
                     dcc.Input(type="number",
                               style={"display": "inline-block",
                                      "border-color": "#E5E4E2",
@@ -612,12 +621,22 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
     df = pl.DataFrame(data)
 
     if df is not None:
-        price_area, price_label, label_data = labels_for_charts(df, area_type)
+        if area_type == "Sq M": 
+            price_col = 'price_sqm'
+            area_type = "area_sqm"
+        else:
+            price_col = "price_sqft"
+            area_type = "area_sqft"
+
+        base_cols = ['price', 'town', 'street_name']
+        base_cols = base_cols + [area_type,]
+        customdata_set = list(df[base_cols].to_numpy())
+
         fig.add_trace(
             go.Scatter(
                 y=df.select('price').to_series(),  # unchanged
-                x=df.select(price_area).to_series(),
-                customdata=label_data,
+                x=df.select(price_col).to_series(),
+                customdata=customdata_set,
                 hovertemplate='<i>Price:</i> %{y:$,}<br>' +
                 '<i>Area:</i> %{customdata[3]:,}<br>' +
                 '<i>Price/Area:</i> %{x:$,}<br>' +
@@ -629,9 +648,9 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
             )
         )
         fig.update_layout(
-            title=f"Home Prices vs Prices / {price_label}",
-            yaxis={"title": "Home Prices"},
-            xaxis={"title": f"Prices / {price_label}"},
+            title=f"[ price ] VS [ {price_col} ]",
+            yaxis={"title": "price"},
+            xaxis={"title": f"{price_col}"},
             width=chart_width,
             height=chart_height,
             showlegend=False,
@@ -652,14 +671,17 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
     df = pl.DataFrame(data)
 
     if df is not None:
-        price_area, price_label, label_data = labels_for_charts(df, area_type)
+        price_col, area_type = convert_price_area(price_type, area_type)
+        base_cols = ['price', 'town', 'street_name']
+        base_cols = base_cols + [area_type,]
+        customdata_set = list(df[base_cols].to_numpy())
 
         fig.add_trace(
             go.Scatter(
-                y=df.select(price_area).to_series(),  # unchanged
+                y=df.select(price_col).to_series(),  # unchanged
                 x=df.select('year_count').to_series(),
-                customdata=label_data,
-                hovertemplate='<i>Price/' + price_label + ':</i> %{y:$,}<br>' +
+                customdata=customdata_set,
+                hovertemplate='<i>Price/' + price_col + ':</i> %{y:$,}<br>' +
                 '<i>Price:</i> %{customdata[0]:$,}<br>' +
                 '<i>Area:</i> %{customdata[3]:,}<br>' +
                 '<i>Town :</i> %{customdata[1]}<br>' +
@@ -670,9 +692,9 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
             )
         )
         fig.update_layout(
-            title=f"[ Price / {price_label} ] VS [ Lease Left ]",
-            yaxis={"title": f"Price / {price_label}"},
-            xaxis={"title": "Lease Left"},
+            title=f"[ {price_col} ] VS [ lease_left ]",
+            yaxis={"title": f"{price_col}"},
+            xaxis={"title": "lease_left"},
             width=chart_width,
             height=chart_height,
             showlegend=False,
@@ -693,18 +715,11 @@ def update_g1(data, town, area_type, price_type, max_lease, min_lease):
     df = pl.DataFrame(data)
 
     if df is not None:
-        if price_type == "Price":
-            price_value = price_type.lower()
-            price_label = "Price"
-
-        else:
-            price_value = "price_sqft" if area_type != "Sq M" else "price_sqm"
-            price_label = "Price / Sq Ft" if area_type != "Sq M" else "Price / Sq M"
-
+        price_col, area_type = convert_price_area(price_type, area_type)
         fig = go.Figure()
         fig.add_trace(
             go.Box(
-                y=df.select(price_value).to_series(),
+                y=df.select(price_col).to_series(),
                 name="Selected Homes",
                 boxpoints="outliers",
                 marker_color="rgb(8,81,156)",
@@ -712,8 +727,8 @@ def update_g1(data, town, area_type, price_type, max_lease, min_lease):
             )
         )
         fig.update_layout(
-            title=f"Home {price_label} Distributions",
-            yaxis={"title": f"{price_label}"},
+            title=f"[ {price_col} ] Distributions",
+            yaxis={"title": f"{price_col}"},
             width=chart_width,
             height=chart_height,
             showlegend=False,
