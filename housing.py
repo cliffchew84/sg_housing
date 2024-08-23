@@ -134,19 +134,19 @@ area_min = df.select("area_sqm").min().rows()[0][0]
 legend = dict(orientation="h", yanchor="bottom", y=-0.26, xanchor="right", x=1)
 chart_width, chart_height = 500, 450
 
+yr = datetime.now().year
+mth = datetime.now().month
+selected_mths = pl.date_range(
+    date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
 
 def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
-              max_price, min_price, min_lease, max_lease, street_name,
-              data_json):
+              max_price, min_price, min_lease, max_lease, street_name, yr, mth,
+              selected_mths, data_json):
     """Filter Polars DataFrame for Viz, based on inputs"""
 
     # Using Pandas and converting it to Polars, as my pl.read_json has issues
     df = pl.DataFrame(json.loads(data_json))
 
-    yr = datetime.now().year
-    mth = datetime.now().month
-    selected_mths = pl.date_range(
-        date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
     selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(month):]]
 
     df = df.filter(
@@ -382,7 +382,7 @@ app.layout = html.Div([
                     dcc.Dropdown(options=['Price', "Price / Area"],
                          value="Price", id="price_type"),
                 ], style={"display": "flex", "flexDirection": "column",
-                          "width": "12%", "padding": "5px"},
+                          "width": "14%", "padding": "5px"},
                 ),
                 html.Div([
                     html.Label("Min Price | Price Per Area"),
@@ -520,14 +520,15 @@ def filtered_data(n_clicks, town, area_type, price_type, max_lease, min_lease,
     print("Running single table filter!")
     return df_filter(month, town, flat, area_type, max_area, min_area, 
                      price_type, max_price, min_price, max_lease, min_lease,
-                     street_name, data_json).to_dicts()
+                     street_name, yr, mth, selected_mths, data_json).to_dicts()
 
 
 @callback(Output("price-table", "rowData"), Input('filtered-data', 'data'))
 def update_table(data):
-    """ Function to show transactions in the table output """
-    try:
-        df = pl.DataFrame(data)
+    """ Table output to show all searched transactions """
+    output = [{}]
+    df = pl.DataFrame(data)
+    if df is not None:
         records = df.shape[0]
 
         df = df.with_columns(
@@ -536,16 +537,15 @@ def update_table(data):
             pl.col('price_sqft').round(2),
             pl.col('price').cast(pl.Float64).round(2),
         )
-        return df.to_dicts()
-    except:
-        return [{}]
+        output = df.to_dicts()
+    return output
 
 
 @callback(Output("dynamic-text", "children"),
           Input('filtered-data', 'data'),
           basic_state_list)
 def update_text(data, town, area_type, price_type, max_lease, min_lease):
-    """ Update summary text for searched output """
+    """ Summary text for searched output """
 
     df = pl.DataFrame(data)
     records = df.shape[0]
@@ -598,7 +598,7 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
 
         text += f" | <b>Total records</b>: {records:,}"
     else:
-        text = "<b><< YOUR SEARCH HAS NO RESULTS >><br>PLEASE TRY AGAIN</b>"
+        text = "<b><< YOUR SEARCH HAS NO RESULTS >></b>"
 
     return dcc.Markdown(text, dangerously_allow_html=True)
 
@@ -607,11 +607,12 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
           Input('filtered-data', 'data'),
           basic_state_list)
 def update_g0(data, town, area_type, price_type, max_lease, min_lease):
-    try:
-        df = pl.DataFrame(data)
-        price_area, price_label, label_data = labels_for_charts(df, area_type)
+    """ Scatter Plot of Price to Price / Sq Area """
+    fig = go.Figure()
+    df = pl.DataFrame(data)
 
-        fig = go.Figure()
+    if df is not None:
+        price_area, price_label, label_data = labels_for_charts(df, area_type)
         fig.add_trace(
             go.Scatter(
                 y=df.select('price').to_series(),  # unchanged
@@ -639,20 +640,20 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
         fig.update_xaxes(showspikes=True)
         fig.update_yaxes(showspikes=True)
 
-        return fig
-    except:
-        return go.Figure()
+    return fig
 
 
 @callback(Output("g2", "figure"),
           Input('filtered-data', 'data'),
           basic_state_list)
 def update_g2(data, town, area_type, price_type, max_lease, min_lease):
-    try:
-        df = pl.DataFrame(data)
+    """ Price to Lease Left Plot """
+    fig = go.Figure()
+    df = pl.DataFrame(data)
+
+    if df is not None:
         price_area, price_label, label_data = labels_for_charts(df, area_type)
 
-        fig = go.Figure()
         fig.add_trace(
             go.Scatter(
                 y=df.select(price_area).to_series(),  # unchanged
@@ -680,18 +681,18 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
         fig.update_xaxes(showspikes=True)
         fig.update_yaxes(showspikes=True)
 
-        return fig
-    except:
-        return go.Figure()
+    return fig
 
 
 @callback(Output("g1", "figure"),
           Input('filtered-data', 'data'),
           basic_state_list)
 def update_g1(data, town, area_type, price_type, max_lease, min_lease):
+    """ Box Plot Distribution """
+    fig = go.Figure()
+    df = pl.DataFrame(data)
 
-    try:
-        df = pl.DataFrame(data)
+    if df is not None:
         if price_type == "Price":
             price_value = price_type.lower()
             price_label = "Price"
@@ -717,9 +718,7 @@ def update_g1(data, town, area_type, price_type, max_lease, min_lease):
             height=chart_height,
             showlegend=False,
         )
-        return fig
-    except:
-        return go.Figure()
+    return fig
 
 
 @callback(
