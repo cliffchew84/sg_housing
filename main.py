@@ -1,7 +1,7 @@
 import requests
 import jinja2
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.wsgi import WSGIMiddleware
@@ -73,6 +73,11 @@ async def render_html(request: Request):
     except requests.RequestException as e:
         raise HTTPException(
             status_code=500, detail=f"Error fetching HTML: {str(e)}")
+
+
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/public_homes")
 
 
 # Have this separate endpoint for geospatial work
