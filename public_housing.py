@@ -71,7 +71,6 @@ def fetch_data_for_period(period):
     else:
         return pl.DataFrame()  # Return empty DataFrame on error
 
-
 # Use ThreadPoolExecutor to fetch data in parallel
 recent_df = pl.DataFrame()
 with ThreadPoolExecutor(max_workers=5) as executor:
