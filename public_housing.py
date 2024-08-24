@@ -192,7 +192,7 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     df = df.with_columns(pl.col('year_count').cast(pl.Int32))
 
     if max_lease:
-        df = df.filter(pl.col("year_count") >= int(max_lease))
+        df = df.filter(pl.col("year_count") <= int(max_lease))
 
     if min_lease:
         df = df.filter(pl.col("year_count") >= int(min_lease))
