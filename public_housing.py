@@ -13,32 +13,6 @@ table_cols = ['month', 'town', 'flat', 'street_name', 'storey_range',
               'lease_left', 'area_sqm', 'area_sqft', 'price_sqm',
               'price_sqft', 'price']
 
-ag_table_cols = [
-    {"field": 'month', "sortable": True},
-    {"field": 'town', "sortable": True},
-    {"field": 'flat', "sortable": True},
-    {"field": 'street_name', "sortable": True},
-    {"field": 'storey_range', "sortable": True},
-    {"field": 'lease_left', "sortable": True},
-    {"field": 'area_sqm', "sortable": True},
-    {
-        "field": 'area_sqft', "sortable": True,
-        "valueFormatter": {"function": "d3.format('(,.2f')(params.value)"},
-    },
-    {
-        "field": 'price_sqm', "sortable": True,
-        "valueFormatter": {"function": "d3.format('($,.2f')(params.value)"},
-    },
-    {
-        "field": 'price_sqft', "sortable": True,
-        "valueFormatter": {"function": "d3.format('($,.2f')(params.value)"},
-    },
-    {
-        "field": 'price', "sortable": True,
-        "valueFormatter": {"function": "d3.format('($,.2f')(params.value)"},
-    }
-]
-
 # Get current month and recent periods
 current_mth = datetime.now().date().strftime("%Y-%m")
 total_periods = [str(i)[:7] for i in pl.date_range(
@@ -133,17 +107,18 @@ price_min = df.select("price").min().rows()[0][0]
 area_max = df.select("area_sqm").max().rows()[0][0]
 area_min = df.select("area_sqm").min().rows()[0][0]
 
-legend = dict(orientation="h", yanchor="bottom", y=-0.26, xanchor="right", x=1)
-chart_width, chart_height = 500, 450
-
-yr = datetime.now().year
-mth = datetime.now().month
+yr, mth = datetime.now().year, datetime.now().month
 selected_mths = pl.date_range(
     date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
 
+legend = dict(orientation="h", yanchor="bottom", y=-0.26, xanchor="right", x=1)
+chart_width, chart_height = 500, 450
+
 
 def convert_price_area(price_type, area_type):
-    """ Convert price and area inputs into labels """ 
+    """ Convert user price & area inputs into usable table ftilers & 
+    Plotly labels """ 
+
     if area_type == "Sq M":
         area_type = "area_sqm"
     else:
@@ -161,22 +136,31 @@ def convert_price_area(price_type, area_type):
 
 
 def grid_format(table: pl.DataFrame):
-    output = []
+    """ Add custom formatting to AGrid Table Outputs """
+    output = [
+        {"field": "month", "sortable": True, 'width': 100, 'maxWidth': 100},
+        {"field": "flat", "sortable": True, 'width': 70, 'maxWidth': 70},
+        {"field": "town", "sortable": True, 'width': 180, 'maxWidth': 300},
+        {"field": "street_name", "sortable": True, 'width': 380, 'maxWidth': 800},
+        {"field": "storey_range", "sortable": True, 'width': 130, 'maxWidth': 130},
+        {"field": "lease_left", "sortable": True, 'width': 100, 'maxWidth': 100},
+        {"field": "price", "sortable": True, 'width': 150, 'maxWidth': 200, 
+         "valueFormatter": {"function": "d3.format('($,.2f')(params.value)"},
+        }
+    ]
     for col in table.columns:
-        if 'price' in col:
+        if 'price_' in col:
             output.append({
-                "field": col, "sortable": True,
+                "field": col, "sortable": True, 'width': 120, 'maxWidth': 120,
                 "valueFormatter": {"function":
                                    "d3.format('($,.2f')(params.value)"},
             })
         elif "area" in col:
             output.append({
-                "field": col, "sortable": True,
-                "valueFormatter": {"function": 
+                "field": col, "sortable": True, 'width': 120, 'maxWidth': 120,
+                "valueFormatter": {"function":
                                    "d3.format('(,.2f')(params.value)"},
             })
-        else:
-            output.append({'field': col, "sortable": True})
 
     return output
 
@@ -190,7 +174,6 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     df = pl.DataFrame(json.loads(data_json))
 
     selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(month):]]
-
     df = df.filter(
         pl.col("month").is_in(selected_mths),
         pl.col("flat").is_in(flat)
@@ -216,11 +199,11 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
 
     price_type, area_type = convert_price_area(price_type, area_type)
 
-    # df = df.drop("price_sqm", 'area_sqm')
-    # if area_type == 'area_sqft':
-    #     df = df.drop("price_sqm", 'area_sqm')
-    # else:
-    #     df = df.drop('price_sqft', "area_sqft")
+    # Filter for Sq Ft or Sq M columns
+    if area_type == 'area_sqft':
+        df = df.drop("price_sqm", 'area_sqm')
+    else:
+        df = df.drop('price_sqft', "area_sqft")
 
     if town != "All":
         df = df.filter(pl.col("town") == town)
@@ -315,11 +298,10 @@ app.layout = html.Div([
                 dcc.Markdown("""
                 1. Area provided by HDB is in square metres. Calculations for
                 square feet are done by taking square metres by 10.7639.
-                2. Lease left is calculated from remaining lease provided by
-                HDB.
+                2. Lease left is calculated from remaining lease provided by HDB.
                 3. Data is taken from HDB as is. This data source seems
                 slower that transactions reported in the media.
-                4. Information provided here is only meant for research, and
+                4. Information provided here is only for research, and
                 shouldn't be seen as financial advice.""")
             ], style={"textAlign": "left", "color": "#555", "padding": "5px"}),
         ),
@@ -553,18 +535,20 @@ def filtered_data(n_clicks, town, area_type, price_type, max_lease, min_lease,
 
 
 @callback(Output("price-table", "rowData"),
+          Output('price-table', 'columnDefs'),
           Input('filtered-data', 'data'),
           State('area_type', 'value'),
-          State('price_type', 'value')
-)
+          State('price_type', 'value'))
 def update_table(data, area_type, price_type):
     """ Table output to show all searched transactions """
     output = [{}]
-    df = pl.DataFrame(data)
+    df = pl.DataFrame(data).drop("year_count", "mth_count")
     if df is not None:
 
         output = df.to_dicts()
-    return output
+        columnDefs=grid_format(df)
+
+    return output, columnDefs
 
 
 @callback(Output("dynamic-text", "children"),
@@ -638,6 +622,7 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
     df = pl.DataFrame(data)
 
     if df is not None:
+        # Transform user inputs into table usable columns
         if area_type == "Sq M": 
             price_col = 'price_sqm'
             area_type = "area_sqm"
@@ -688,6 +673,7 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
     df = pl.DataFrame(data)
 
     if df is not None:
+        # Transform user inputs into table usable columns
         price_col, area_type = convert_price_area(price_type, area_type)
         base_cols = ['price', 'town', 'street_name']
         base_cols = base_cols + [area_type,]
@@ -732,6 +718,7 @@ def update_g1(data, town, area_type, price_type, max_lease, min_lease):
     df = pl.DataFrame(data)
 
     if df is not None:
+        # Transform user inputs into table usable columns
         price_col, area_type = convert_price_area(price_type, area_type)
         fig = go.Figure()
         fig.add_trace(
