@@ -73,7 +73,7 @@ def fetch_data_for_period(period):
 
 # Use ThreadPoolExecutor to fetch data in parallel
 recent_df = pl.DataFrame()
-with ThreadPoolExecutor(max_workers=5) as executor:
+with ThreadPoolExecutor(max_workers=4) as executor:
     futures = {executor.submit(
         fetch_data_for_period, period): period for period in recent_periods}
 
@@ -160,6 +160,27 @@ def convert_price_area(price_type, area_type):
     return price_type, area_type
 
 
+def grid_format(table: pl.DataFrame):
+    output = []
+    for col in table.columns:
+        if 'price' in col:
+            output.append({
+                "field": col, "sortable": True,
+                "valueFormatter": {"function":
+                                   "d3.format('($,.2f')(params.value)"},
+            })
+        elif "area" in col:
+            output.append({
+                "field": col, "sortable": True,
+                "valueFormatter": {"function": 
+                                   "d3.format('(,.2f')(params.value)"},
+            })
+        else:
+            output.append({'field': col, "sortable": True})
+
+    return output
+
+
 def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
               max_price, min_price, min_lease, max_lease, street_name, yr, mth,
               selected_mths, data_json):
@@ -195,7 +216,8 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
 
     price_type, area_type = convert_price_area(price_type, area_type)
 
-    # if area_type == 'area_sqft': 
+    # df = df.drop("price_sqm", 'area_sqm')
+    # if area_type == 'area_sqft':
     #     df = df.drop("price_sqm", 'area_sqm')
     # else:
     #     df = df.drop('price_sqft', "area_sqft")
@@ -450,15 +472,15 @@ app.layout = html.Div([
                     html.H3(
                         "Filtered Public Housing Transactions",
                         style={
-                            "font-size": "15px",
+                            "font-size": "20px",
                             "textAlign": "left",
                             "margin-top": "20px",
                         },
                     ),
                     dag.AgGrid(
                         id="price-table",
-                        columnDefs=ag_table_cols,
-                        rowData=df.select(table_cols).to_dicts(),
+                        columnDefs=grid_format(df),
+                        rowData=df.to_dicts(),
                         className="ag-theme-balham",
                         columnSize="responsiveSizeToFit",
                         dashGridOptions={
@@ -530,20 +552,17 @@ def filtered_data(n_clicks, town, area_type, price_type, max_lease, min_lease,
                      street_name, yr, mth, selected_mths, data_json).to_dicts()
 
 
-@callback(Output("price-table", "rowData"), Input('filtered-data', 'data'))
-def update_table(data):
+@callback(Output("price-table", "rowData"),
+          Input('filtered-data', 'data'),
+          State('area_type', 'value'),
+          State('price_type', 'value')
+)
+def update_table(data, area_type, price_type):
     """ Table output to show all searched transactions """
     output = [{}]
     df = pl.DataFrame(data)
     if df is not None:
-        records = df.shape[0]
 
-        df = df.with_columns(
-            pl.col('area_sqft').round(2),
-            pl.col('price_sqm').round(2),
-            pl.col('price_sqft').round(2),
-            pl.col('price').cast(pl.Float64).round(2),
-        )
         output = df.to_dicts()
     return output
 
