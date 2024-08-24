@@ -151,11 +151,7 @@ final_df = final_df.drop(
         'final_area': 'area_sqm'
     }
 ).with_columns(
-    pl.col('price').round(2),
-    pl.col('price_sqm').round(2),
-    pl.col('price_sqft').round(2),
-    pl.col('area_sqm').round(2),
-    pl.col('area_sqft').round(2),
+    pl.col("date").cast(pl.String).str.slice(0, 7).alias('date'),
     pl.col("lease_left").cast(pl.String).fill_null(
         pl.col("freehold")).alias("freehold/lease")
 )
@@ -196,7 +192,7 @@ ag_table_cols = [
     },
     {
         "field": 'price_sqm', "sortable": True,
-        "valueFormatter": {"function": "d3.format('($,.2f')(params.value)"},
+        "valueFormatter": {"function": "d3.format('($,.1f')(params.value)"},
     },
     {
         "field": 'price_sqft', "sortable": True,
