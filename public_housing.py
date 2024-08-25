@@ -101,6 +101,15 @@ towns = ["All",] + towns
 flat_type_grps = df.select("flat").unique().to_series().to_list()
 flat_type_grps.sort()
 
+final_flat_type_grps = []
+for flat in flat_type_grps:
+    final_flat_type_grps.append({
+        "label": html.Span([flat], style={'background-color': "#FFC0BD",
+                                          'border': "#FFC0BD",
+                                          'color': 'black'}),
+        "value": flat, "search": flat
+    })
+
 period_grps = df.select("month").unique().to_series().to_list()
 price_max = df.select("price").max().rows()[0][0]
 price_min = df.select("price").min().rows()[0][0]
@@ -373,7 +382,7 @@ app.layout = html.Div([
                 ),
                 html.Div([
                     html.Label("Flat"),
-                    dcc.Dropdown(multi=True, options=flat_type_grps,
+                    dcc.Dropdown(multi=True, options=final_flat_type_grps,
                                  value=flat_type_grps,
                                  id="flat"),
                 ], style={"display": "inline-block",
