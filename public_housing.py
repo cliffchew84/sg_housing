@@ -120,9 +120,8 @@ yr, mth = datetime.now().year, datetime.now().month
 selected_mths = pl.date_range(
     date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
 
-# legend = dict(orientation="h", yanchor="bottom", y=-0.26, xanchor="right", x=1)
+legend = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=.5)
 chart_width, chart_height = 680, 550
-
 
 def convert_price_area(price_type, area_type):
     """ Convert user price & area inputs into usable table ftilers & 
@@ -475,12 +474,13 @@ app.layout = html.Div([
                           "width": "15%", "padding": "5px"},
                 ),
                 html.Div([
-                    html.Label("Submit"),
-                    html.Button('Submit', id='submit-button',
-                                style={"display": "inline-block",
-                                       "border-color": "#E5E4E2",
-                                       "padding": "5px"},
-                                )
+                    html.Label("Submit", style={'margin-top': '12px'}),
+                    dbc.Button('Submit', 
+                               id='submit-button',
+                               className="mb-3",
+                               color="danger",
+                               n_clicks=0,
+                               style={"verticalAlign": "top"})
                 ], style={"display": "flex", "flexDirection": "column",
                           "width": "8%", "padding": "5px"},
                 )
@@ -539,13 +539,8 @@ app.layout = html.Div([
         ),
         dcc.Loading([
             html.Div([
-                dcc.Graph(id="g0", style={
-                    "display": "inline-block", "width": "48%",
-                }),
-                dcc.Graph(id="g2", style={
-                    "display": "inline-block", "width": "38%"}),
-                # dcc.Graph(id="g1", style={
-                #     "display": "inline-block", "width": "30%"}),
+                dcc.Graph(id="g0", style={"display": "inline-block", "width": "48%"}),
+                dcc.Graph(id="g2", style={"display": "inline-block", "width": "38%"}),
             ], style={
                 "display": "flex",
                 "justify-content": "flex-start",
@@ -726,7 +721,7 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
                 x=non_df.select(price_col).to_series(),
                 mode='markers',
                 hoverinfo='skip',
-                marker_color="#FFC0BD",
+                marker={"color": "#FFC0BD", "opacity": 0.5},
                 name='Rest of SG'
             )
         )
@@ -743,25 +738,18 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
                 '<i>Street Name:</i> %{customdata[2]}<br>' +
                 '<i>Lease Left:</i> %{customdata[0]}',
                 mode='markers',
-                marker_color="rgb(220,38,38)",
+                marker={"color": "rgb(220, 38, 38)", "opacity": 0.9},
                 name='Selected Data'
             )
         )
         fig.update_layout(
             title=f"""<b>Home Prices vs Price / Area<b>
-            <br><sup>Current selection in Red; Rest of SG in Pink</sup>
             """,
             yaxis={"title": "price", "gridcolor" :'#d3d3d3', "showspikes": True},
             xaxis={"title": f"{price_col}", "gridcolor":'#d3d3d3', "showspikes": True},
             width=chart_width,
             height=chart_height,
-            # showlegend=False,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="left",
-                x=.5),
+            legend=legend,
             plot_bgcolor='white',
             margin=dict(l=5,r=5)
         )
@@ -808,7 +796,7 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
                 x=non_df.select("year_count").to_series(),
                 mode='markers',
                 hoverinfo='skip',
-                marker_color="#FFC0BD",
+                marker={"color": "#FFC0BD", "opacity": 0.5},
                 name='Rest of SG'
             )
         )
@@ -825,58 +813,20 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
                 '<i>Street Name:</i> %{customdata[3]}<br>' +
                 '<i>Lease Left:</i> %{x}',
                 mode='markers',
-                marker_color="rgb(220, 38, 38)",
+                marker={"color": "rgb(220, 38, 38)", "opacity": 0.9},
                 name="Selected Data"
             )
         )
         fig.update_layout(
             title=f"""<b>Home Prices vs Lease Left<b>
-            <br><sup>Current selection in Red; Rest of SG in Pink</sup>
             """,
             yaxis={"title": f"{price_col}", 'gridcolor': '#d3d3d3', "showspikes": True},
             xaxis={"title": "lease_left", 'gridcolor': '#d3d3d3', "showspikes": True},
             width=chart_width,
             height=chart_height,
-            # showlegend=False,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="left",
-                x=.5),
+            legend=legend,
             plot_bgcolor='white',
             margin=dict(l=5,r=5)
-        )
-    return fig
-
-
-@callback(Output("g1", "figure"),
-          Input('filtered-data', 'data'),
-          basic_state_list)
-def update_g1(data, town, area_type, price_type, max_lease, min_lease):
-    """ Box Plot Distribution """
-    fig = go.Figure()
-    df = pl.DataFrame(data)
-
-    if df is not None:
-        # Transform user inputs into table usable columns
-        price_col, area_type = convert_price_area(price_type, area_type)
-        fig = go.Figure()
-        fig.add_trace(
-            go.Box(
-                y=df.select(price_col).to_series(),
-                name="Selected Homes",
-                boxpoints="outliers",
-                marker_color="rgb(220,38,38)",
-                line_color="rgb(220,38,38)",
-            )
-        )
-        fig.update_layout(
-            title=f"[ {price_col} ] Distributions",
-            yaxis={"title": f"{price_col}"},
-            width=chart_width,
-            height=chart_height,
-            showlegend=False,
         )
     return fig
 
