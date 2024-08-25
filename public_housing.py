@@ -174,28 +174,48 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     df = pl.DataFrame(json.loads(data_json))
 
     selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(month):]]
-    df = df.filter(
-        pl.col("month").is_in(selected_mths),
-        pl.col("flat").is_in(flat)
-    )
-
-    if street_name:
-        df = df.filter(pl.col("street_name").str.contains(street_name.upper()))
 
     df = df.with_columns(
         pl.col("lease_left")
         .str.split_exact("y", 1)
         .struct.rename_fields(["year_count", "mth_count"])
         .alias("fields")
-    ).unnest("fields")
-
-    df = df.with_columns(pl.col('year_count').cast(pl.Int32))
+    ).unnest("fields").with_columns(
+        pl.col('year_count').cast(pl.Int32))
 
     if max_lease:
-        df = df.filter(pl.col("year_count") <= int(max_lease))
+        df = df.with_columns(
+            pl.when(pl.col("year_count") <= int(max_lease))
+            .then(True)
+            .otherwise(False)
+            .alias("max_lease_flag")
+        )
 
     if min_lease:
-        df = df.filter(pl.col("year_count") >= int(min_lease))
+        df = df.with_columns(
+            pl.when(pl.col("year_count") >= int(min_lease))
+            .then(True)
+            .otherwise(False)
+            .alias("min_lease_flag")
+        )
+
+    df = df.with_columns(
+        pl.when(
+            pl.col("month").is_in(selected_mths),
+            pl.col("flat").is_in(flat)
+        )
+        .then(True)
+        .otherwise(False)
+        .alias("month_flat_flag")
+    )
+
+    if street_name:
+        df = df.with_columns(
+            pl.when(pl.col("street_name").str.contains(street_name.upper()))
+            .then(True)
+            .otherwise(False)
+            .alias("street_name_flag")
+        )
 
     price_type, area_type = convert_price_area(price_type, area_type)
 
@@ -206,19 +226,46 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
         df = df.drop('price_sqft', "area_sqft")
 
     if town != "All":
-        df = df.filter(pl.col("town") == town)
+        df = df.with_columns(
+            pl.when(pl.col("town") == town)
+            .then(True)
+            .otherwise(False)
+            .alias("town_flag")
+        )
+    else:
+        df = df.with_columns(town_flag = True)
 
     if max_price:
-        df = df.filter(pl.col(price_type) <= max_price)
+        df = df.with_columns(
+            pl.when(pl.col(price_type) <= max_price)
+            .then(True)
+            .otherwise(False)
+            .alias("max_price_flag")
+        )
 
     if min_price:
-        df = df.filter(pl.col(price_type) >= min_price)
+        df = df.with_columns(
+            pl.when(pl.col(price_type) >= min_price)
+            .then(True)
+            .otherwise(False)
+            .alias("min_price_flag")
+        )
 
     if max_area:
-        df.filter(pl.col(area_type) <= max_area)
+        df = df.with_columns(
+            pl.when(pl.col(area_type) <= min_area)
+            .then(True)
+            .otherwise(False)
+            .alias("max_area_flag")
+        )
 
     if min_area:
-        df = df.filter(pl.col(area_type) >= min_area)
+        df = df.with_columns(
+            pl.when(pl.col(area_type) >= min_area)
+            .then(True)
+            .otherwise(False)
+            .alias("min_area_flag")
+        )
 
     return df
 
@@ -544,6 +591,10 @@ def update_table(data, area_type, price_type):
     output = [{}]
     df = pl.DataFrame(data).drop("year_count", "mth_count")
     if df is not None:
+        flags = [i for i in df.columns if 'flag' in i]
+        df = df.filter(
+                ~pl.any_horizontal(pl.col('*') == False)
+            ).drop(flags)
 
         output = df.to_dicts()
         columnDefs=grid_format(df)
@@ -558,8 +609,13 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
     """ Summary text for searched output """
 
     df = pl.DataFrame(data)
-    records = df.shape[0]
 
+    flags = [i for i in df.columns if 'flag' in i]
+    df = df.filter(
+        ~pl.any_horizontal(pl.col('*') == False)
+    ).drop(flags)
+
+    records = df.shape[0]
     if records > 0:
         if price_type == 'Price' and area_type == 'Sq M':
             price_min = min(df.select("price").to_series())
@@ -621,6 +677,16 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
     fig = go.Figure()
     df = pl.DataFrame(data)
 
+    flags = [i for i in df.columns if 'flag' in i]
+
+    non_df = df.filter(
+        pl.any_horizontal(pl.col('*') == False)
+    ).drop(flags)
+
+    df = df.filter(
+        ~pl.any_horizontal(pl.col('*') == False)
+    ).drop(flags)
+
     if df is not None:
         # Transform user inputs into table usable columns
         if area_type == "Sq M": 
@@ -636,6 +702,16 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
 
         fig.add_trace(
             go.Scatter(
+                y=non_df.select('price').to_series(),  # unchanged
+                x=non_df.select(price_col).to_series(),
+                mode='markers',
+                hoverinfo='skip',
+                marker_color="white",
+            )
+        )
+
+        fig.add_trace(
+            go.Scattergl(
                 y=df.select('price').to_series(),  # unchanged
                 x=df.select(price_col).to_series(),
                 customdata=customdata_set,
@@ -646,20 +722,18 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
                 '<i>Street Name:</i> %{customdata[1]}<br>' +
                 '<i>Lease Left:</i> %{customdata[2]}',
                 mode='markers',
-                marker_color="rgb(8,81,156)",
+                marker_color="rgb(220,38,38)",
+                # marker_color="rgb(8,81,156)",
             )
         )
         fig.update_layout(
             title=f"[ price ] VS [ {price_col} ]",
-            yaxis={"title": "price"},
-            xaxis={"title": f"{price_col}"},
+            yaxis={"title": "price", "showspikes": True},
+            xaxis={"title": f"{price_col}", "showspikes": True},
             width=chart_width,
             height=chart_height,
             showlegend=False,
         )
-
-        fig.update_xaxes(showspikes=True)
-        fig.update_yaxes(showspikes=True)
 
     return fig
 
@@ -673,14 +747,33 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
     df = pl.DataFrame(data)
 
     if df is not None:
+        flags = [i for i in df.columns if 'flag' in i]
+        non_df = df.filter(
+            pl.any_horizontal(pl.col('*') == False)
+        ).drop(flags)
+
+        df = df.filter(
+            ~pl.any_horizontal(pl.col('*') == False)
+        ).drop(flags)
+
         # Transform user inputs into table usable columns
         price_col, area_type = convert_price_area(price_type, area_type)
         base_cols = ['price', 'town', 'street_name']
         base_cols = base_cols + [area_type,]
         customdata_set = list(df[base_cols].to_numpy())
+        
+        fig.add_trace(
+            go.Scattergl(
+                y=non_df.select(price_col).to_series(),  # unchanged
+                x=non_df.select("year_count").to_series(),
+                mode='markers',
+                hoverinfo='skip',
+                marker_color="white",
+            )
+        )
 
         fig.add_trace(
-            go.Scatter(
+            go.Scattergl(
                 y=df.select(price_col).to_series(),  # unchanged
                 x=df.select('year_count').to_series(),
                 customdata=customdata_set,
@@ -691,20 +784,17 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
                 '<i>Street Name:</i> %{customdata[2]}<br>' +
                 '<i>Lease Left:</i> %{x}',
                 mode='markers',
-                marker_color="rgb(8,81,156)",
+                marker_color="rgb(220, 38, 38)",
             )
         )
         fig.update_layout(
             title=f"[ {price_col} ] VS [ lease_left ]",
-            yaxis={"title": f"{price_col}"},
-            xaxis={"title": "lease_left"},
+            yaxis={"title": f"{price_col}", "showspikes": True},
+            xaxis={"title": "lease_left", "showspikes": True},
             width=chart_width,
             height=chart_height,
             showlegend=False,
         )
-
-        fig.update_xaxes(showspikes=True)
-        fig.update_yaxes(showspikes=True)
 
     return fig
 
@@ -726,8 +816,8 @@ def update_g1(data, town, area_type, price_type, max_lease, min_lease):
                 y=df.select(price_col).to_series(),
                 name="Selected Homes",
                 boxpoints="outliers",
-                marker_color="rgb(8,81,156)",
-                line_color="rgb(8,81,156)",
+                marker_color="rgb(220,38,38)",
+                line_color="rgb(220,38,38)",
             )
         )
         fig.update_layout(
