@@ -1,14 +1,18 @@
 p {
     font-size: 20px;
 }
+
 body {
-    background-color: #f5f5f5; /* or any shade of gray you prefer */
+    background-color: #f5f5f5;
+    /* or any shade of gray you prefer */
 }
+
 table {
     border-collapse: collapse;
     width: 100%;
     border: 1px solid #000000;
 }
+
 th {
     background-color: #000000;
     text-align: center;
@@ -17,44 +21,49 @@ th {
     font-weight: bold;
     border: 1px solid #000000;
 }
+
 td {
     padding: 8px;
     border: 1px solid #ddd;
     border-color: #000000;
 }
+
 .form-check {
     color: white;
     padding-top: 9px;
 }
+
 .word {
     background-color: lightgrey;
     padding: 5px;
 }
 
 .container {
-  border: 2.5px solid black;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin: 0 auto;
-  margin-top: 1em;
-  text-align: center;
-  width: 400px; /* increased width */
-  padding: 40px; /* increased padding */
+    border: 2.5px solid black;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 0 auto;
+    margin-top: 1em;
+    text-align: center;
+    width: 400px;
+    /* increased width */
+    padding: 40px;
+    /* increased padding */
 }
 
 h2 {
-  margin-top: 0;
+    margin-top: 0;
 }
 
 form {
-  display: inline-block;
-  text-align: left;
+    display: inline-block;
+    text-align: left;
 }
 
 label {
-  display: block;
-  margin-bottom: 10px;
+    display: block;
+    margin-bottom: 10px;
 }
 
 #myInput {
