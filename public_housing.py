@@ -111,8 +111,8 @@ yr, mth = datetime.now().year, datetime.now().month
 selected_mths = pl.date_range(
     date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
 
-legend = dict(orientation="h", yanchor="bottom", y=-0.26, xanchor="right", x=1)
-chart_width, chart_height = 500, 450
+# legend = dict(orientation="h", yanchor="bottom", y=-0.26, xanchor="right", x=1)
+chart_width, chart_height = 680, 550
 
 
 def convert_price_area(price_type, area_type):
@@ -324,7 +324,7 @@ app.layout = html.Div([
                 html.P(
                     id="dynamic-text",
                     style={"textAlign": "center", "padding-top": "10px"}
-                )]),
+                )], type="circle", color="rgb(220, 38, 38)"),
             width="auto"
         ),
         dbc.Col(
@@ -374,7 +374,8 @@ app.layout = html.Div([
                 html.Div([
                     html.Label("Flat"),
                     dcc.Dropdown(multi=True, options=flat_type_grps,
-                         value=flat_type_grps, id="flat"),
+                                 value=flat_type_grps,
+                                 id="flat"),
                 ], style={"display": "inline-block",
                           "width": "40%", "padding": "10px"},
                 ),
@@ -503,7 +504,8 @@ app.layout = html.Div([
                         style={
                             "font-size": "20px",
                             "textAlign": "left",
-                            "margin-top": "20px",
+                            "margin-top": "15px",
+                            "margin-bottom": "5px",
                         },
                     ),
                     dag.AgGrid(
@@ -518,24 +520,28 @@ app.layout = html.Div([
                         },
                     ),
                 ], style={
-                    "height": chart_height,
+                    "height": 450,
                     "width": 1200,
-                    "padding": "5px",
+                    # "padding": "5px",
                     "display": "inline-block",
                 },
-                )])
+                )], type="circle", color="rgb(220, 38, 38)"),
         ], style=dict(display="flex"),
         ),
         dcc.Loading([
             html.Div([
                 dcc.Graph(id="g0", style={
-                    "display": "inline-block", "width": "30%"}),
+                    "display": "inline-block", "width": "48%",
+                }),
                 dcc.Graph(id="g2", style={
-                    "display": "inline-block", "width": "30%"}),
-                dcc.Graph(id="g1", style={
-                    "display": "inline-block", "width": "30%"}),
-            ]
-            )])
+                    "display": "inline-block", "width": "38%"}),
+                # dcc.Graph(id="g1", style={
+                #     "display": "inline-block", "width": "30%"}),
+            ], style={
+                "display": "flex",
+                "justify-content": "flex-start",
+                "width": "100%"}
+            )], type="circle", color="rgb(220, 38, 38)")
     ],
         style={"display": "flex",
                "flexDirection": "column",
@@ -696,17 +702,23 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
             price_col = "price_sqft"
             area_type = "area_sqft"
 
-        base_cols = ['price', 'town', 'street_name']
+        df = df.with_columns(
+            pl.col(price_col).round(2),
+            pl.col(area_type).round(2),
+        )
+
+        base_cols = ['year_count', 'town', 'street_name']
         base_cols = base_cols + [area_type,]
         customdata_set = list(df[base_cols].to_numpy())
 
         fig.add_trace(
-            go.Scatter(
+            go.Scattergl(
                 y=non_df.select('price').to_series(),  # unchanged
                 x=non_df.select(price_col).to_series(),
                 mode='markers',
                 hoverinfo='skip',
-                marker_color="white",
+                marker_color="#FFC0BD",
+                name='Rest of SG'
             )
         )
 
@@ -718,23 +730,32 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
                 hovertemplate='<i>Price:</i> %{y:$,}<br>' +
                 '<i>Area:</i> %{customdata[3]:,}<br>' +
                 '<i>Price/Area:</i> %{x:$,}<br>' +
-                '<i>Town :</i> %{customdata[0]}<br>' +
-                '<i>Street Name:</i> %{customdata[1]}<br>' +
-                '<i>Lease Left:</i> %{customdata[2]}',
+                '<i>Town :</i> %{customdata[1]}<br>' +
+                '<i>Street Name:</i> %{customdata[2]}<br>' +
+                '<i>Lease Left:</i> %{customdata[0]}',
                 mode='markers',
                 marker_color="rgb(220,38,38)",
-                # marker_color="rgb(8,81,156)",
+                name='Selected Data'
             )
         )
         fig.update_layout(
-            title=f"[ price ] VS [ {price_col} ]",
-            yaxis={"title": "price", "showspikes": True},
-            xaxis={"title": f"{price_col}", "showspikes": True},
+            title=f"""<b>Home Prices vs Price / Area<b>
+            <br><sup>Current selection in Red; Rest of SG in Pink</sup>
+            """,
+            yaxis={"title": "price", "gridcolor" :'#d3d3d3', "showspikes": True},
+            xaxis={"title": f"{price_col}", "gridcolor":'#d3d3d3', "showspikes": True},
             width=chart_width,
             height=chart_height,
-            showlegend=False,
+            # showlegend=False,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="left",
+                x=.5),
+            plot_bgcolor='white',
+            margin=dict(l=5,r=5)
         )
-
     return fig
 
 
@@ -758,7 +779,17 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
 
         # Transform user inputs into table usable columns
         price_col, area_type = convert_price_area(price_type, area_type)
-        base_cols = ['price', 'town', 'street_name']
+
+        df = df.with_columns(
+            pl.col(price_col).round(2),
+            pl.col(area_type).round(2),
+        )
+
+        if area_type == "area_sqm":
+            base_cols = ['price', 'price_sqm', 'town', 'street_name']
+        else:
+            base_cols = ['price', 'price_sqft', 'town', 'street_name']
+        
         base_cols = base_cols + [area_type,]
         customdata_set = list(df[base_cols].to_numpy())
         
@@ -768,7 +799,8 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
                 x=non_df.select("year_count").to_series(),
                 mode='markers',
                 hoverinfo='skip',
-                marker_color="white",
+                marker_color="#FFC0BD",
+                name='Rest of SG'
             )
         )
 
@@ -777,25 +809,35 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
                 y=df.select(price_col).to_series(),  # unchanged
                 x=df.select('year_count').to_series(),
                 customdata=customdata_set,
-                hovertemplate='<i>Price/' + price_col + ':</i> %{y:$,}<br>' +
-                '<i>Price:</i> %{customdata[0]:$,}<br>' +
-                '<i>Area:</i> %{customdata[3]:,}<br>' +
-                '<i>Town :</i> %{customdata[1]}<br>' +
-                '<i>Street Name:</i> %{customdata[2]}<br>' +
+                hovertemplate='<i>Price:</i> %{customdata[0]:$,}<br>' +
+                '<i>Area:</i> %{customdata[4]:,}<br>' +
+                '<i>Price/Area:</i> %{customdata[1]:$,}<br>' +
+                '<i>Town :</i> %{customdata[2]}<br>' +
+                '<i>Street Name:</i> %{customdata[3]}<br>' +
                 '<i>Lease Left:</i> %{x}',
                 mode='markers',
                 marker_color="rgb(220, 38, 38)",
+                name="Selected Data"
             )
         )
         fig.update_layout(
-            title=f"[ {price_col} ] VS [ lease_left ]",
-            yaxis={"title": f"{price_col}", "showspikes": True},
-            xaxis={"title": "lease_left", "showspikes": True},
+            title=f"""<b>Home Prices vs Lease Left<b>
+            <br><sup>Current selection in Red; Rest of SG in Pink</sup>
+            """,
+            yaxis={"title": f"{price_col}", 'gridcolor': '#d3d3d3', "showspikes": True},
+            xaxis={"title": "lease_left", 'gridcolor': '#d3d3d3', "showspikes": True},
             width=chart_width,
             height=chart_height,
-            showlegend=False,
+            # showlegend=False,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="left",
+                x=.5),
+            plot_bgcolor='white',
+            margin=dict(l=5,r=5)
         )
-
     return fig
 
 
