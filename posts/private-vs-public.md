@@ -14,10 +14,6 @@ our Singapore public housing market through an analytics lens. While editing the
 dashboards for my HDB data set from data.gov.sg, I have also been playing with the 
 private property market data set provided by URA.
 
-*Note that while I am still publishing here, I am also posting property-related 
-posts on my property blog to allow readers to play with my interactive charts. 
-The content on both sites will be the same. This link for this blog post is here.*
-
 After several weeks of on-off data exploration, here are some of patterns I found 
 between our private and public housing markets, or at least how URA differs with HDB:
 
