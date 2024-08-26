@@ -26,12 +26,12 @@ app.mount("/public_housing", WSGIMiddleware(public_housing.server))
 templates = Jinja2Templates(directory='templates')
 
 
-@app.get("/public_homes")
+@app.get("/public-homes")
 async def read_root(request: Request):
     return templates.TemplateResponse(
         "public_home_dash.html", {"request": request})
 
-# @app.get("/private_homes")
+# @app.get("/private-homes")
 # async def private_housing(request: Request):
 #     return templates.TemplateResponse(
 #         "private_home_dash.html", {"request": request})
