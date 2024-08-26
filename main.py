@@ -77,7 +77,7 @@ async def render_html(request: Request):
 
 @app.get("/")
 async def root():
-    return RedirectResponse(url="/public_homes")
+    return RedirectResponse(url="/public-homes")
 
 
 # Have this separate endpoint for geospatial work
