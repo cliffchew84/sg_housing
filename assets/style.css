@@ -1,0 +1,26 @@
+.Select-menu-icon {
+    background-color: white;
+    color: black;
+}
+
+.Select-value-icon {
+    background-color: white !important;
+    color: black !important;
+}
+
+.Select-value {
+    background-color: white !important;
+}
+
+button:hover {
+    background-color: black;
+    color: white;
+    cursor: pointer;
+    border: 1px solid #B80D0D;
+}
+
+button {
+    background-color: #e57373;
+    color: white;
+    border: 1px solid #d32f2f;
+}

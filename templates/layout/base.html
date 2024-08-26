@@ -1,0 +1,61 @@
+{% include 'header.html' %}
+{% include 'navbar.html' %}
+
+<style>
+    h3 {
+        padding-top: 10px;
+        font-size: 1.75em;
+    }
+
+    h4 {
+        padding-top: 10px;
+        font-size: 1.5em;
+    }
+
+    h5 {
+        padding-top: 10px;
+        font-size: 1.25em;
+    }
+
+    h6 {
+        padding-top: 10px;
+        font-size: 1em;
+    }
+
+    p {
+        margin-top: 0px;
+        margin-bottom: 1rem;
+    }
+
+    a {
+        text-decoration: underline;
+    }
+
+    a:visited {
+        text-decoration: underline;
+    }
+
+    a:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<body>
+    <p class='font-bold pl-16 pt-4 pb-2 text-red-600'>
+        <a class='underline' href="{{ url_for('blog_posts') }}">
+            Posts
+        </a>
+        |
+        <a class='underline' href="{{ url_for('blog_tags') }}">
+            Tags
+        </a>
+    </p>
+    <main class="container">
+        <main>
+            {% block content required %}{% endblock content %}
+        </main>
+        <footer>
+            <p class="text-xs">All rights reserved {% now 'utc', '%Y' %}, Daniel Roy Greenfeld</p>
+        </footer>
+    </main>
+</body>
