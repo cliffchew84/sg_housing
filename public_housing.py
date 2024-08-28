@@ -643,7 +643,7 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
 
         elif price_type == "Price / Area" and area_type == "Sq M":
             price_min = min(df.select("price_sqm").to_series())
-            price_max = max(df.select("price_sqm").to_serise())
+            price_max = max(df.select("price_sqm").to_series())
 
             area_min = min(df.select("area_sqm").to_series())
             area_max = max(df.select("area_sqm").to_series())
