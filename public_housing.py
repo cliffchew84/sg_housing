@@ -127,20 +127,10 @@ def convert_price_area(price_type, area_type):
     """ Convert user price & area inputs into usable table ftilers & 
     Plotly labels """ 
 
-    if area_type == "Sq M":
-        area_type = "area_sqm"
-    else:
-        area_type = "area_sqft"
+    if price_type != 'price':
+        price_type = 'price_sqft' if area_type == 'area_sqft' else 'price_sqm'
 
-    if price_type == 'Price': 
-        price_type = "price"
-    else:
-        if area_type == "area_sqm":
-            price_type = "price_sqm"
-        else:
-            price_type = 'price_sqft'
-
-    return price_type, area_type
+    return price_type
 
 
 def grid_format(table: pl.DataFrame):
@@ -225,7 +215,7 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
             .alias("street_name_flag")
         )
 
-    price_type, area_type = convert_price_area(price_type, area_type)
+    price_type = convert_price_area(price_type, area_type)
 
     # Filter for Sq Ft or Sq M columns
     if area_type == 'area_sqft':
@@ -417,8 +407,10 @@ app.layout = html.Div([
             html.Div([
                 html.Div([
                     html.Label("Sq Feet | Sq M"),
-                    html.Div(dcc.Dropdown(options=['Sq Feet', "Sq M"],
-                                          value="Sq Feet", id="area_type")),
+                    html.Div(dcc.Dropdown(options=[
+                        {'label': 'Sq Feet', 'value': 'area_sqft'},
+                        {'label': 'Sq M', 'value': 'area_sqm'},
+                        ], value="area_sqft", id="area_type")),
                 ], style={"display": "flex", "flexDirection": "column",
                           "width": "12%", "padding": "10px"},
                 ),
@@ -446,8 +438,10 @@ app.layout = html.Div([
                 ),
                 html.Div([
                     html.Label("Price | Price / Area"),
-                    dcc.Dropdown(options=['Price', "Price / Area"],
-                         value="Price", id="price_type"),
+                    dcc.Dropdown(options=[
+                        {"label": 'Price', "value": 'price'},
+                        {"label": "Price / Area", "value": 'price_area'}
+                    ], value="price", id="price_type"),
                 ], style={"display": "flex", "flexDirection": "column",
                           "width": "14%", "padding": "5px"},
                 ),
@@ -585,7 +579,6 @@ def filtered_data(n_clicks, town, area_type, price_type, max_lease, min_lease,
                   month, flat, max_area, min_area, max_price, min_price, 
                   street_name, data_json):
 
-    print("Running single table filter!")
     return df_filter(month, town, flat, area_type, max_area, min_area, 
                      price_type, max_price, min_price, max_lease, min_lease,
                      street_name, yr, mth, selected_mths, data_json).to_dicts()
@@ -627,41 +620,24 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
 
     records = df.shape[0]
     if records > 0:
-        if price_type == 'Price' and area_type == 'Sq M':
-            price_min = min(df.select("price").to_series())
-            price_max = max(df.select("price").to_series())
 
-            area_min = min(df.select("area_sqm").to_series())
-            area_max = max(df.select("area_sqm").to_series())
+        area_min = min(df.select(area_type).to_series())
+        area_max = max(df.select(area_type).to_series())
 
-        elif price_type == 'Price' and area_type == 'Sq Feet':
-            price_min = min(df.select("price").to_series())
-            price_max = max(df.select("price").to_series())
-
-            area_min = min(df.select("area_sqft").to_series())
-            area_max = max(df.select("area_sqft").to_series())
-
-        elif price_type == "Price / Area" and area_type == "Sq M":
-            price_min = min(df.select("price_sqm").to_series())
-            price_max = max(df.select("price_sqm").to_series())
-
-            area_min = min(df.select("area_sqm").to_series())
-            area_max = max(df.select("area_sqm").to_series())
-
-            price_type = 'Price / Sq M'
-
-        elif price_type == "Price / Area" and area_type == "Sq Feet":
-            price_min = min(df.select("price_sqft").to_series())
-            price_max = max(df.select("price_sqft").to_series())
-
-            area_min = min(df.select("area_sqft").to_series())
-            area_max = max(df.select("area_sqft").to_series())
-
-            price_type = 'Price / Sq Feet'
+        if price_type == 'price':
+            price_min = min(df.select(price_type).to_series())
+            price_max = max(df.select(price_type).to_series())
+            price_label = 'price'
+        
+        else:
+            price_type = "price_" + area_type.split('_')[-1]
+            price_min = min(df.select(price_type).to_series())
+            price_max = max(df.select(price_type).to_series())
+            price_label = f"Price / {area_type.split('_')[-1]}"
 
         text = f"""<b>You searched : </b>
         <b>Town</b>: {town} |
-        <b>{price_type}</b>: ${price_min:,} - ${price_max:,} |
+        <b>{price_label}</b>: ${price_min:,} - ${price_max:,} |
         <b>{area_type}</b>: {area_min:,} - {area_max:,}
         """
 
@@ -685,51 +661,37 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
 def update_g0(data, town, area_type, price_type, max_lease, min_lease):
     """ Scatter Plot of Price to Price / Sq Area """
     fig = go.Figure()
+
     df = pl.DataFrame(data)
 
-    flags = [i for i in df.columns if 'flag' in i]
-
-    non_df = df.filter(
-        pl.any_horizontal(pl.col('*') == False)
-    ).drop(flags)
-
-    df = df.filter(
-        ~pl.any_horizontal(pl.col('*') == False)
-    ).drop(flags)
-
     if df is not None:
-        # Transform user inputs into table usable columns
-        if area_type == "Sq M": 
-            price_col = 'price_sqm'
-            area_type = "area_sqm"
-        else:
-            price_col = "price_sqft"
-            area_type = "area_sqft"
+        flags = [i for i in df.columns if 'flag' in i]
+        non_df = df.filter(pl.any_horizontal(pl.col('*') == False)).drop(flags)
+        df = df.filter(~pl.any_horizontal(pl.col('*') == False)).drop(flags)
+
+        price_type = convert_price_area(price_type, area_type)
 
         df = df.with_columns(
-            pl.col(price_col).round(2),
+            pl.col(price_type).round(2),
             pl.col(area_type).round(2),
         )
 
-        base_cols = ['year_count', 'town', 'street_name']
-        base_cols = base_cols + [area_type,]
+        base_cols = ['year_count', 'town', 'street_name', area_type]
         customdata_set = list(df[base_cols].to_numpy())
 
         fig.add_trace(
             go.Scattergl(
                 y=non_df.select('price').to_series(),  # unchanged
-                x=non_df.select(price_col).to_series(),
+                x=non_df.select(price_type).to_series(),
                 mode='markers',
                 hoverinfo='skip',
                 marker={"color": "#FFC0BD", "opacity": 0.5},
                 name='Rest of SG'
-            )
-        )
-
+            ))
         fig.add_trace(
             go.Scattergl(
                 y=df.select('price').to_series(),  # unchanged
-                x=df.select(price_col).to_series(),
+                x=df.select(price_type).to_series(),
                 customdata=customdata_set,
                 hovertemplate='<i>Price:</i> %{y:$,}<br>' +
                 '<i>Area:</i> %{customdata[3]:,}<br>' +
@@ -740,13 +702,11 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
                 mode='markers',
                 marker={"color": "rgb(220, 38, 38)", "opacity": 0.9},
                 name='Selected Data'
-            )
-        )
+            ))
         fig.update_layout(
-            title=f"""<b>Home Prices vs Price / Area<b>
-            """,
+            title="<b>Home Prices vs Price / Area<b>",
             yaxis={"title": "price", "gridcolor" :'#d3d3d3', "showspikes": True},
-            xaxis={"title": f"{price_col}", "gridcolor":'#d3d3d3', "showspikes": True},
+            xaxis={"title": f"{price_type}", "gridcolor":'#d3d3d3', "showspikes": True},
             width=chart_width,
             height=chart_height,
             legend=legend,
@@ -766,44 +726,37 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
 
     if df is not None:
         flags = [i for i in df.columns if 'flag' in i]
-        non_df = df.filter(
-            pl.any_horizontal(pl.col('*') == False)
-        ).drop(flags)
-
-        df = df.filter(
-            ~pl.any_horizontal(pl.col('*') == False)
-        ).drop(flags)
+        non_df = df.filter(pl.any_horizontal(pl.col('*') == False)).drop(flags)
+        df = df.filter(~pl.any_horizontal(pl.col('*') == False)).drop(flags)
 
         # Transform user inputs into table usable columns
-        price_col, area_type = convert_price_area(price_type, area_type)
+        price_type = convert_price_area(price_type, area_type)
 
         df = df.with_columns(
-            pl.col(price_col).round(2),
+            pl.col(price_type).round(2),
             pl.col(area_type).round(2),
         )
 
         if area_type == "area_sqm":
-            base_cols = ['price', 'price_sqm', 'town', 'street_name']
+            base_cols = ['price', 'price_sqm', 'town', 'street_name', area_type]
         else:
-            base_cols = ['price', 'price_sqft', 'town', 'street_name']
+            base_cols = ['price', 'price_sqft', 'town', 'street_name', area_type]
         
-        base_cols = base_cols + [area_type,]
         customdata_set = list(df[base_cols].to_numpy())
         
         fig.add_trace(
             go.Scattergl(
-                y=non_df.select(price_col).to_series(),  # unchanged
+                y=non_df.select(price_type).to_series(),  # unchanged
                 x=non_df.select("year_count").to_series(),
                 mode='markers',
                 hoverinfo='skip',
                 marker={"color": "#FFC0BD", "opacity": 0.5},
                 name='Rest of SG'
-            )
-        )
+            ))
 
         fig.add_trace(
             go.Scattergl(
-                y=df.select(price_col).to_series(),  # unchanged
+                y=df.select(price_type).to_series(),  # unchanged
                 x=df.select('year_count').to_series(),
                 customdata=customdata_set,
                 hovertemplate='<i>Price:</i> %{customdata[0]:$,}<br>' +
@@ -818,9 +771,8 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
             )
         )
         fig.update_layout(
-            title=f"""<b>Home Prices vs Lease Left<b>
-            """,
-            yaxis={"title": f"{price_col}", 'gridcolor': '#d3d3d3', "showspikes": True},
+            title="<b>Home Prices vs Lease Left<b>",
+            yaxis={"title": f"{price_type}", 'gridcolor': '#d3d3d3', "showspikes": True},
             xaxis={"title": "lease_left", 'gridcolor': '#d3d3d3', "showspikes": True},
             width=chart_width,
             height=chart_height,
