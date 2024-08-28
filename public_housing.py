@@ -113,8 +113,8 @@ for flat in flat_type_grps:
 period_grps = df.select("month").unique().to_series().to_list()
 price_max = df.select("price").max().rows()[0][0]
 price_min = df.select("price").min().rows()[0][0]
-area_max = df.select("area_sqm").max().rows()[0][0]
-area_min = df.select("area_sqm").min().rows()[0][0]
+area_max = df.select("area_sqft").max().rows()[0][0]
+area_min = df.select("area_sqft").min().rows()[0][0]
 
 yr, mth = datetime.now().year, datetime.now().month
 selected_mths = pl.date_range(
