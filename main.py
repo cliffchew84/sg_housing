@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.wsgi import WSGIMiddleware
 from fastapi_blog import add_blog_to_fastapi
 from public_housing import app as public_housing
-# from private_housing import app as private_housing
+from private_housing import app as private_housing
 # from location_map import app as location_map
 
 
@@ -21,7 +21,7 @@ app = add_blog_to_fastapi(app, jinja2_loader=django_style_jinja2_loader)
 
 app.mount('/static', StaticFiles(directory='static'), name='static')
 app.mount("/public_housing", WSGIMiddleware(public_housing.server))
-# app.mount("/private_housing", WSGIMiddleware(private_housing.server))
+app.mount("/private_housing", WSGIMiddleware(private_housing.server))
 # app.mount("/location_map", WSGIMiddleware(location_map.server))
 templates = Jinja2Templates(directory='templates')
 
@@ -31,10 +31,11 @@ async def read_root(request: Request):
     return templates.TemplateResponse(
         "public_home_dash.html", {"request": request})
 
-# @app.get("/private-homes")
-# async def private_housing(request: Request):
-#     return templates.TemplateResponse(
-#         "private_home_dash.html", {"request": request})
+
+@app.get("/private-homes")
+async def private_housing(request: Request):
+    return templates.TemplateResponse(
+        "private_home_dash.html", {"request": request})
 
 gurl = "https://raw.githubusercontent.com/cliffchew84/cliffchew84.github.io/"
 bar_plot = "master/profile/assets/charts/mth_barline_chart.html"
@@ -76,11 +77,12 @@ async def render_html(request: Request):
 
 
 @app.get("/")
-async def root():
-    return RedirectResponse(url="/public-homes")
+async def root():    
+    # return RedirectResponse(url="/private-homes")
+    return RedirectResponse(url="/sg-public-home-trends")
 
 
-# Have this separate endpoint for geospatial work
+# Have separate endpoint for geospatial work
 # @app.get("/public_housing", response_class=HTMLResponse)
 # async def read_root(request: Request):
 #     return templates.TemplateResponse("house_dash.html",
