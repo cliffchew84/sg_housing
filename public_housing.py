@@ -9,8 +9,8 @@ import numpy as np
 import requests
 import json
 
-table_cols = ['month', 'town', 'flat', 'street_name', 'storey_range',
-              'lease_left', 'area_sqm', 'area_sqft', 'price_sqm',
+table_cols = ['month', 'town', 'flat', 'street', 'floor',
+              'lease', 'area_sqm', 'area_sqft', 'price_sqm',
               'price_sqft', 'price']
 
 # Get current month and recent periods
@@ -46,18 +46,17 @@ def fetch_data_for_period(period):
         return pl.DataFrame()  # Return empty DataFrame on error
 
 # Use ThreadPoolExecutor to fetch data in parallel
-recent_df = pl.DataFrame()
+df = pl.DataFrame()
 with ThreadPoolExecutor(max_workers=4) as executor:
     futures = {executor.submit(
         fetch_data_for_period, period): period for period in recent_periods}
 
     for future in as_completed(futures):
         mth_df = future.result()
-        recent_df = pl.concat([recent_df, mth_df], how='vertical')
+        df = pl.concat([df, mth_df], how='vertical')
 
 # Data Processing
-df = recent_df.clone()
-df.columns = ['month', 'town', 'flat', 'block', 'street_name', 'storey_range', 
+df.columns = ['month', 'town', 'flat', 'block', 'street', 'floor', 
               'area_sqm', 'lease_mths', 'price']
 
 df = df.with_columns(
@@ -69,7 +68,7 @@ df = df.with_columns(
     (pl.col("price") / pl.col("area_sqm")).alias('price_sqm'),
     (pl.col("price") / pl.col('area_sqft')).alias("price_sqft"),
     ("BLK " + pl.col('block') + " " +
-        pl.col("street_name")).alias("street_name"),
+        pl.col("street")).alias("street_name"),
     pl.col('lease_mths').str.replace(
         "s", "").str.replace(
         " year", "y").str.replace(
@@ -78,8 +77,15 @@ df = df.with_columns(
         " ROOM", "RM").str.replace(
         "EXECUTIVE", 'EC').str.replace(
         "MULTI-GENERATION", "MG").alias('flat'),
-    pl.col("storey_range").str.replace(" TO ", "-").alias("storey_range")
-).rename({"lease_mths": "lease_left"}).drop("block")
+    pl.col("floor").str.replace(" TO ", "-").alias("floor")
+).rename({"lease_mths": "lease"}).drop("block")
+
+yr, mth = datetime.now().year, datetime.now().month
+selected_mths = pl.date_range(
+    date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
+
+selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(6):]]
+df = df.filter(pl.col("month").is_in(selected_mths))
 df = df[table_cols]
 print("Completed data extraction from data.gov.sg")
 
@@ -116,10 +122,6 @@ price_min = df.select("price").min().rows()[0][0]
 area_max = df.select("area_sqft").max().rows()[0][0]
 area_min = df.select("area_sqft").min().rows()[0][0]
 
-yr, mth = datetime.now().year, datetime.now().month
-selected_mths = pl.date_range(
-    date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
-
 legend = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=.5)
 chart_width, chart_height = 680, 550
 
@@ -138,9 +140,9 @@ def grid_format(table: pl.DataFrame):
         {"field": "month", "sortable": True, 'width': 100, 'maxWidth': 100},
         {"field": "flat", "sortable": True, 'width': 70, 'maxWidth': 70},
         {"field": "town", "sortable": True, 'width': 180, 'maxWidth': 300},
-        {"field": "street_name", "sortable": True, 'width': 380, 'maxWidth': 800},
-        {"field": "storey_range", "sortable": True, 'width': 130, 'maxWidth': 130},
-        {"field": "lease_left", "sortable": True, 'width': 100, 'maxWidth': 100},
+        {"field": "street", "sortable": True, 'width': 380, 'maxWidth': 800},
+        {"field": "floor", "sortable": True, 'width': 100, 'maxWidth': 130},
+        {"field": "lease", "sortable": True, 'width': 100, 'maxWidth': 100},
         {"field": "price", "sortable": True, 'width': 150, 'maxWidth': 200, 
          "valueFormatter": {"function": "d3.format('($,.2f')(params.value)"},
         }
@@ -163,20 +165,19 @@ def grid_format(table: pl.DataFrame):
 
 
 def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
-              max_price, min_price, min_lease, max_lease, street_name,
+              max_price, min_price, min_lease, max_lease, street,
               selected_mths, data_json):
     """Filter Polars DataFrame for Viz, based on inputs"""
 
     # Using Pandas and converting it to Polars, as my pl.read_json has issues
     df = pl.DataFrame(json.loads(data_json))
-
-    selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(month):]]
+    # selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(month):]]
 
     # Filter for the selected months first
-    df = df.filter(pl.col('month').is_in(selected_mths))
+    # df = df.filter(pl.col('month').is_in(selected_mths))
 
     df = df.with_columns(
-        pl.col("lease_left")
+        pl.col("lease")
         .str.split_exact("y", 1)
         .struct.rename_fields(["year_count", "mth_count"])
         .alias("fields")
@@ -209,21 +210,29 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
         .alias("flat_flag")
     )
 
-    if street_name:
+    if street:
         df = df.with_columns(
-            pl.when(pl.col("street_name").str.contains(street_name.upper()))
+            pl.when(pl.col("street").str.contains(street_name.upper()))
             .then(True)
             .otherwise(False)
-            .alias("street_name_flag")
+            .alias("street_flag")
         )
 
     price_type = convert_price_area(price_type, area_type)
 
     # Filter for Sq Ft or Sq M columns
     if area_type == 'area_sqft':
-        df = df.drop("price_sqm", 'area_sqm')
+        df = df.with_columns(
+            pl.col('price').round(2),
+            pl.col('price_sqft').round(2),
+            pl.col('area_sqft').round(2),
+        ).drop("price_sqm", 'area_sqm')
     else:
-        df = df.drop('price_sqft', "area_sqft")
+        df = df.with_columns(
+            pl.col('price').round(2),
+            pl.col('price_sqm').round(2),
+            pl.col('area_sqm').round(2)
+        ).drop('price_sqft', "area_sqft")
 
     if town != "All":
         df = df.with_columns(
@@ -268,7 +277,6 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
         )
 
     return df
-
 
 app.layout = html.Div([
     html.Div(
@@ -483,14 +491,14 @@ app.layout = html.Div([
             ], style={"display": "flex", "flexDirection": "row",
                       "alignItems": "center"}),
             html.Div([
-                html.Label("""Search by Street Name
-        ( Add | separator to include >1 street name )"""),
+                html.Label("""Search by Street 
+        ( Add | separator to include >1 street )"""),
                 dcc.Input(type="text",
                           style={"display": "inline-block",
                                  "border-color": "#E5E4E2",
                                  "padding": "5px"},
                           placeholder="Type the Street Name here",
-                          id="street_name"),
+                          id="street"),
             ], style={"display": "flex", "flexDirection": "column",
                       "width": "45%", "padding": "5px"},
             ),
@@ -555,35 +563,35 @@ app.layout = html.Div([
 
 
 # Standardised Dash Input-Output states
-basic_state_list = [
+basic_state = [
     State('town', 'value'),
     State('area_type', 'value'),
     State('price_type', 'value'),
     State('max_lease', 'value'),
     State('min_lease', 'value')
 ]
-add_on_state_list = [
+added_state = [
     State('month', 'value'),
     State('flat', 'value'),
     State('max_area', 'value'),
     State('min_area', 'value'),
     State('max_price', 'value'),
     State('min_price', 'value'),
-    State('street_name', 'value'),
+    State('street', 'value'),
     State('data-store', 'children')
 ]
-full_state_list = basic_state_list + add_on_state_list
+full_state = basic_state + added_state
 
-@callback(Output("filtered-data", "data"),
+@callback(Output("filtered-data", "data"), 
           Input('submit-button', 'n_clicks'), 
-          full_state_list)
+          full_state)
 def filtered_data(n_clicks, town, area_type, price_type, max_lease, min_lease,
                   month, flat, max_area, min_area, max_price, min_price, 
-                  street_name, data_json):
+                  street, data_json):
 
     return df_filter(month, town, flat, area_type, max_area, min_area, 
                      price_type, max_price, min_price, max_lease, min_lease,
-                     street_name, selected_mths, data_json).to_dicts()
+                     street, selected_mths, data_json).to_dicts()
 
 
 @callback(Output("price-table", "rowData"),
@@ -609,7 +617,7 @@ def update_table(data, area_type, price_type):
 
 @callback(Output("dynamic-text", "children"),
           Input('filtered-data', 'data'),
-          basic_state_list)
+          basic_state)
 def update_text(data, town, area_type, price_type, max_lease, min_lease):
     """ Summary text for searched output """
 
@@ -655,7 +663,7 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
 
 @callback(Output("g0", "figure"),
           Input('filtered-data', 'data'),
-          basic_state_list)
+          basic_state)
 def update_g0(data, town, area_type, price_type, max_lease, min_lease):
     """ Scatter Plot of Price to Price / Sq Area """
     fig = go.Figure()
@@ -670,12 +678,7 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
         price_type = convert_price_area(price_type, area_type)
         price_label = 'price_sqm' if area_type == 'area_sqm' else 'price_sqft'
 
-        df = df.with_columns(
-            pl.col(price_type).round(2),
-            pl.col(area_type).round(2),
-        )
-
-        base_cols = ['year_count', 'town', 'street_name', area_type]
+        base_cols = ['year_count', 'town', 'street', area_type]
         customdata_set = list(df[base_cols].to_numpy())
 
         fig.add_trace(
@@ -715,9 +718,7 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
     return fig
 
 
-@callback(Output("g2", "figure"),
-          Input('filtered-data', 'data'),
-          basic_state_list)
+@callback(Output("g2", "figure"), Input('filtered-data', 'data'), basic_state)
 def update_g2(data, town, area_type, price_type, max_lease, min_lease):
     """ Price to Lease Left Plot """
     fig = go.Figure()
@@ -731,13 +732,8 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
         # Transform user inputs into table usable columns
         price_type = convert_price_area(price_type, area_type)
 
-        df = df.with_columns(
-            pl.col(price_type).round(2),
-            pl.col(area_type).round(2),
-        )
-
         price_label = 'price_sqm' if area_type == 'area_sqm' else 'price_sqft'
-        base_cols = ['price', price_label, 'town', 'street_name', area_type]
+        base_cols = ['price', price_label, 'town', 'street', area_type]
         customdata_set = list(df[base_cols].to_numpy())
         
         fig.add_trace(
@@ -769,7 +765,7 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
         fig.update_layout(
             title="<b>Home Prices vs Lease Left<b>",
             yaxis={"title": f"{price_type}", 'gridcolor': '#d3d3d3', "showspikes": True},
-            xaxis={"title": "lease_left", 'gridcolor': '#d3d3d3', "showspikes": True},
+            xaxis={"title": "lease", 'gridcolor': '#d3d3d3', "showspikes": True},
             width=chart_width,
             height=chart_height,
             legend=legend,
@@ -782,24 +778,18 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
 @callback(
     Output("collapse", "is_open"),
     [Input("collapse-button", "n_clicks")],
-    [State("collapse", "is_open")],
-)
+    [State("collapse", "is_open")])
 def toggle_collapse(n, is_open):
-    if n:
-        return not is_open
-    return is_open
+    return not is_open if n else is_open
 
 
 @callback(
     Output("caveats", "is_open"),
     [Input("collapse-caveats", "n_clicks")],
-    [State("caveats", "is_open")],
-)
+    [State("caveats", "is_open")])
 def toggle_caveat(n, is_open):
-    if n:
-        return not is_open
-    return is_open
+    return not is_open if n else is_open
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run_server(debug=True)

@@ -144,6 +144,13 @@ df = df.drop('lease_left').rename({
         "final_lease_left": 'lease_left',
     }).select(cols_select)
 
+yr, mth = datetime.now().year, datetime.now().month
+selected_mths = pl.date_range(
+    date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
+
+selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(6):]]
+df = df.filter(pl.col("month").is_in(selected_mths))
+
 # Initalise App
 app = Dash(
     __name__,
@@ -183,10 +190,6 @@ price_max = df.select("price").max().rows()[0][0]
 price_min = df.select("price").min().rows()[0][0]
 area_max = round(df.select("area_sqft").max().rows()[0][0], 2)
 area_min = round(df.select("area_sqft").min().rows()[0][0], 2)
-
-yr, mth = datetime.now().year, datetime.now().month
-selected_mths = pl.date_range(
-    date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
 
 legend = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=.5)
 chart_width, chart_height = 680, 550
@@ -241,11 +244,6 @@ def df_filter(month, district, region, property, area_type, max_area, min_area,
 
     # Using Pandas and converting it to Polars, as my pl.read_json has issues
     df = pl.DataFrame(json.loads(data_json))
-    selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(month):]]
-
-    # Filter for only the selected 6 months
-    df = df.filter(pl.col("month").is_in(selected_mths))
-
     if max_lease:
         df = df.with_columns(
             pl.when(pl.col("lease_left") <= int(max_lease))
