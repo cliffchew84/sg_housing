@@ -212,7 +212,7 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
 
     if street:
         df = df.with_columns(
-            pl.when(pl.col("street").str.contains(street_name.upper()))
+            pl.when(pl.col("street").str.contains(street.upper()))
             .then(True)
             .otherwise(False)
             .alias("street_flag")
