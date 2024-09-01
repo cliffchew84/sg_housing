@@ -1,4 +1,3 @@
-import uvicorn
 import requests
 import jinja2
 from fastapi import FastAPI, Request, HTTPException

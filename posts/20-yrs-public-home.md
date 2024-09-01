@@ -3,7 +3,7 @@ date: "2022-10-09"
 published: true
 tags:
   - Public Housing
-title: What I found analysing 20 years of Singapore public housing data in 2022
+title: Updating - What I found analysing 20 years of Singapore public housing data in 2022
 description: I crunched the data to find out!  
 ---
 
