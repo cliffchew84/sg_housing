@@ -20,7 +20,13 @@ total_periods = [str(i)[:7] for i in pl.date_range(
     datetime.now(),
     interval='1mo',
     eager=True).to_list()]
-recent_periods = total_periods[-6:]
+
+# Allows for first 10 days of a month to still include 7th month ago data
+if datetime.now().day <= 10:
+    recent_periods = total_periods[-7:]
+else:
+    recent_periods = total_periods[-6:]
+
 
 # Define columns and URL
 df_cols = ['month', 'town', 'flat_type', 'block', 'street_name', 
