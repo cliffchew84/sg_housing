@@ -8,8 +8,6 @@ import polars as pl
 import numpy as np
 import requests
 import json
-import gzip
-import base64
 
 table_cols = ['month', 'town', 'flat', 'street', 'floor', 'lease', 'area_sqm',
               'area_sqft', 'price_sqm', 'price_sqft', 'price']
@@ -90,14 +88,6 @@ df = df.filter(
     pl.col("floor").str.replace(" TO ", "-").alias("floor")
 ]).select(table_cols)
 
-json_data = df.write_json()
-
-# Compress the JSON data using gzip
-compressed_data = gzip.compress(json_data.encode('utf-8'))
-
-# Encode the compressed data in Base64 to store as a string
-base64_encoded_data = base64.b64encode(compressed_data).decode('utf-8')
-
 print("Completed data extraction from data.gov.sg")
 
 # Initalise App
@@ -175,16 +165,16 @@ def grid_format(table: pl.DataFrame):
 
 def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
               max_price, min_price, min_lease, max_lease, street,
-              selected_mths, data):
+              selected_mths, data_json):
     """Filter Polars DataFrame for Viz, based on inputs"""
 
     # Using Pandas and converting it to Polars, as my pl.read_json has issues
-    base64_encoded_data = data
-    # Decode and decompress the data
-    compressed_data = base64.b64decode(base64_encoded_data)
-    data_json = gzip.decompress(compressed_data).decode('utf-8')
-
     df = pl.DataFrame(json.loads(data_json)).lazy()
+    # selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(month):]]
+
+    # Filter for the selected months first
+    # df = df.filter(pl.col('month').is_in(selected_mths))
+
     df = df.with_columns([
         pl.col("lease")
             .str.split_exact("y", 1)
@@ -194,7 +184,7 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
         pl.col('year_count').cast(pl.Int32)
     ])
 
-    # Conditional flags
+# Conditional flags
     flags = []
 
     if max_lease:
@@ -228,7 +218,7 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
             .alias("street_flag")
         )
 
-    # Filter and rounding for price and area columns
+# Filter and rounding for price and area columns
     price_type = convert_price_area(price_type, area_type)
 
     if area_type == 'area_sqft':
@@ -246,10 +236,10 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
         ]
         drop_columns = ['price_sqft', "area_sqft"]
 
-    # Add rounding and column dropping
+# Add rounding and column dropping
     df = df.with_columns(rounding_columns).drop(drop_columns)
 
-    # Conditional flags for town, price, and area
+# Conditional flags for town, price, and area
     if town != "All":
         flags.append(
             pl.when(pl.col("town") == town)
@@ -292,14 +282,17 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
             .alias("min_area_flag")
         )
 
-    # Apply all conditional flags in a single with_columns call
-    return df.with_columns(flags).collect()
+# Apply all conditional flags in a single with_columns call
+    df = df.with_columns(flags)
+    df = df.collect()
+
+    return df
 
 app.layout = html.Div([
     html.Div(
         id="data-store",
         style={"display": "none"},
-        children=base64_encoded_data,
+        children=df.write_json(),
     ),
     dcc.Store(id='filtered-data'),
     html.H3(
@@ -603,11 +596,11 @@ full_state = basic_state + added_state
           full_state)
 def filtered_data(n_clicks, town, area_type, price_type, max_lease, min_lease,
                   month, flat, max_area, min_area, max_price, min_price, 
-                  street, data):
+                  street, data_json):
 
     return df_filter(month, town, flat, area_type, max_area, min_area, 
                      price_type, max_price, min_price, max_lease, min_lease,
-                     street, selected_mths, data).to_dicts()
+                     street, selected_mths, data_json).to_dicts()
 
 
 @callback(Output("price-table", "rowData"),
