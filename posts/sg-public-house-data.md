@@ -20,8 +20,7 @@ diverse price range within the HDB resale market," he said. HDB also noted that
 "the vast majority of resale flats were transacted at a much lower price and
 remained affordable".**"
 
-Here is what I found from my analysis [here](https://sg-housing.onrender.com/sg-public-home-trends),
-with data from data.gov.sg.
+Here is what I found from my analysis [here](https://sg-housing.onrender.com/sg-public-home-trends), with data from data.gov.sg.
 
 1. Yes, currently million dollar public homes comprising around 3% of our HDB 
 resale flats sold. 3% out of 100% seems small. However, 4 years ago, in 
@@ -47,10 +46,7 @@ like median income, inflation rates, interest rates, and so on. I dare not say
 my analysis remotely touches anything related to the affordability of our 
 public homes. 
 
-As I said in my in-person sharing in [July 2024](/blog/posts/dssg-findings), I am just a concerned Singapore 
-citizen that learned a bit of analytics, and realised I could do my part to 
-share a more diverse, and hopefully neutral narrative about our Singapore 
+As I said in my in-person sharing in [July 2024](/blog/posts/dssg-findings), I am just a concerned Singapore citizen that learned a bit of analytics, and realised I could do my part to share a more diverse, and hopefully neutral narrative about our Singapore 
 public housing market. Sorry for the cliche “influencer-ish” statement, but if
 any of you are interested in this Singapore public housing market like I am, 
-feel free to follow me on [Linkedin](https://www.linkedin.com/in/cliff-chew-kt/) or maybe just bookmark my dashboard or something. I promise to continually monitor the Singapore public housing market as long as 
-the data is available, and add more features / analysis when I can.
+feel free to follow me on [Linkedin](https://www.linkedin.com/in/cliff-chew-kt/) or maybe just bookmark my dashboard or something. I promise to continually monitor the Singapore public housing market as long as the data is available, and add more features / analysis when I can.

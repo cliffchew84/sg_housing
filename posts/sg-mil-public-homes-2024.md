@@ -9,21 +9,10 @@ description: I studied 20 years of Singapore public housing resale data, and fou
 ---
 
 *This article was first posted on Medium <a href="https://cliffy-gardens.medium.com/singapore-million-dollar-public-homes-2024-analysis-update-d8c22d4eca20" target="_blank">here</a> on Feb 2, 2024. This article has been updated with 
-the latest data to be publish here. Interactive charts are added to allow my audience to better 
-engage and understand the data that I was looking at.* ***I decided to create simpler geospatial 
-animation maps through Matplotlib to show the spatial dispersions of these million dollar public 
-resale homes.***
+the latest data to be publish here. Interactive charts are added to allow my audience to better engage and understand the data that I was looking at.* ***I decided to create simpler geospatial animation maps through Matplotlib to show the spatial dispersions of these million dollar public resale homes.***
 
 ###### Recap
-In <a href="https://medium.com/@cliffy-gardens/what-i-found-analysing-20-years-of-singapore-public-housing-data-in-2022-ce30a31e7e61"target="_blank">Oct 2022</a>, **I analysed 20 years of Singapore public housing data, 
-and found an increasing trend of million dollar public homes sold from 2012 to 2022. 
-And these million dollar public home sales were slowly occurring beyond the central 
-residential areas of Singapore to certain outskirt residential areas. Metaphorically, 
-I described this situation like a virus spreading from the city centre to the outskirts.** 
-While there have been several government property cooling measures (here and here) since
-then, the Singapore public housing market seems to still be red hot, with many new
-million dollar public home transactions happening even in 2024. Hence, I want to
-update my analysis to see how the situation is now.
+In <a href="https://medium.com/@cliffy-gardens/what-i-found-analysing-20-years-of-singapore-public-housing-data-in-2022-ce30a31e7e61"target="_blank">Oct 2022</a>, **I analysed 20 years of Singapore public housing data, and found an increasing trend of million dollar public homes sold from 2012 to 2022. And these million dollar public home sales were slowly occurring beyond the central residential areas of Singapore to certain outskirt residential areas. Metaphorically, I described this situation like a virus spreading from the city centre to the outskirts.** While there have been several government property cooling measures (here and here) since then, the Singapore public housing market seems to still be red hot, with many new million dollar public home transactions happening even in 2024. Hence, I want to update my analysis to see how the situation is now.
 
 ##### Update on million dollar homes
 I updated my chart to show the million dollar public home transactions per month,
