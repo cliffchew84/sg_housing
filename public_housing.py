@@ -9,57 +9,49 @@ import numpy as np
 import requests
 import json
 
-table_cols = ['month', 'town', 'flat', 'street', 'floor',
-              'lease', 'area_sqm', 'area_sqft', 'price_sqm',
-              'price_sqft', 'price']
+table_cols = ['month', 'town', 'flat', 'street', 'floor', 'lease', 'area_sqm',
+              'area_sqft', 'price_sqm', 'price_sqft', 'price']
 
 # Get current month and recent periods
 current_mth = datetime.now().date().strftime("%Y-%m")
-total_periods = [str(i)[:7] for i in pl.date_range(
+periods = [str(i)[:7] for i in pl.date_range(
     datetime(2024, 1, 1),
     datetime.now(),
     interval='1mo',
     eager=True).to_list()]
 
 # Allows for first 10 days of a month to still include 7th month ago data
-if datetime.now().day <= 10:
-    recent_periods = total_periods[-7:]
-else:
-    recent_periods = total_periods[-6:]
-
+recent_periods = periods[-7:] if datetime.now().day <= 10 else periods[-6:]
 
 # Define columns and URL
-df_cols = ['month', 'town', 'flat_type', 'block', 'street_name', 
-           'storey_range', 'floor_area_sqm', 'remaining_lease',
-           'resale_price']
+df_cols = ['month', 'town', 'flat_type', 'block', 'street_name', 'storey_range',
+           'floor_area_sqm', 'remaining_lease', 'resale_price']
 param_fields = ",".join(df_cols)
 base_url = "https://data.gov.sg/api/action/datastore_search?resource_id="
 ext_url = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc"
 full_url = base_url + ext_url
-
+empty_df = pl.DataFrame(schema=df_cols)
 
 # Function to make an API request
-def fetch_data_for_period(period):
+def fetch_hdb_data(period):
     params = {
         "fields": param_fields,
         "filters": json.dumps({'month': period}),
         "limit": 10000
     }
+    result = empty_df
     response = requests.get(full_url, params=params)
     if response.status_code == 200:
         table_result = pl.DataFrame(response.json().get("result").get("records"))
-        if table_result.columns == []:
-            return pl.DataFrame(schema=df_cols)  # Return empty DataFrame on error
-        else:
-            return table_result
-    else:
-        return pl.DataFrame(schema=df_cols)  # Return empty DataFrame on error
+        if table_result.columns != []:
+            result = table_result
+    return result
 
 # Use ThreadPoolExecutor to fetch data in parallel
-df = pl.DataFrame(schema=df_cols)
+df = empty_df
 with ThreadPoolExecutor(max_workers=4) as executor:
     futures = {executor.submit(
-        fetch_data_for_period, period): period for period in recent_periods}
+        fetch_hdb_data, period): period for period in recent_periods}
 
     for future in as_completed(futures):
         mth_df = future.result()
@@ -69,45 +61,42 @@ with ThreadPoolExecutor(max_workers=4) as executor:
 df.columns = ['month', 'town', 'flat', 'block', 'street', 'floor', 
               'area_sqm', 'lease_mths', 'price']
 
-df = df.with_columns(
-    pl.col('area_sqm').cast(pl.Float32),
-    pl.col('price').cast(pl.Float32),
-).with_columns(
-    (pl.col("area_sqm") * 10.7639).alias('area_sqft'),
-).with_columns(
-    (pl.col("price") / pl.col("area_sqm")).alias('price_sqm'),
-    (pl.col("price") / pl.col('area_sqft')).alias("price_sqft"),
-    ("BLK " + pl.col('block') + " " +
-        pl.col("street")).alias("street_name"),
-    pl.col('lease_mths').str.replace(
-        "s", "").str.replace(
-        " year", "y").str.replace(
-        " month", "m").alias('lease_mths'),
-    pl.col('flat').str.replace(
-        " ROOM", "RM").str.replace(
-        "EXECUTIVE", 'EC').str.replace(
-        "MULTI-GENERATION", "MG").alias('flat'),
-    pl.col("floor").str.replace(" TO ", "-").alias("floor")
-).rename({"lease_mths": "lease"}).drop("block")
-
 yr, mth = datetime.now().year, datetime.now().month
 selected_mths = pl.date_range(
     date(2024, 1, 1), date(yr, mth, 1), "1mo", eager=True).to_list()
-
 selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(6):]]
-df = df.filter(pl.col("month").is_in(selected_mths))
-df = df[table_cols]
+
+df = df.filter(
+    pl.col("month").is_in(selected_mths)
+).with_columns([
+    pl.col('area_sqm').cast(pl.Float32),
+    pl.col('price').cast(pl.Float32),
+    (pl.col("area_sqm").cast(pl.Float32) * 10.7639).alias('area_sqft'),
+    (pl.col("price").cast(pl.Float32) / pl.col("area_sqm").cast(pl.Float32)).alias('price_sqm'),
+    (pl.col("price").cast(pl.Float32) / (pl.col("area_sqm").cast(pl.Float32) * 10.7639)).alias("price_sqft"),
+    ("BLK " + pl.col('block') + " " + pl.col("street")).alias("street_name"),
+    pl.col('lease_mths')
+        .str.replace("s", "")
+        .str.replace(" year", "y")
+        .str.replace(" month", "m")
+        .alias('lease'),
+    pl.col('flat')
+        .str.replace(" ROOM", "RM")
+        .str.replace("EXECUTIVE", 'EC')
+        .str.replace("MULTI-GENERATION", "MG")
+        .alias('flat'),
+    pl.col("floor").str.replace(" TO ", "-").alias("floor")
+]).select(table_cols)
+
 print("Completed data extraction from data.gov.sg")
 
 # Initalise App
-app = Dash(
-    __name__,
-    external_stylesheets=[
-        {'src': 'https://cdn.tailwindcss.com'},
-        dbc.themes.BOOTSTRAP,
-    ],
-    requests_pathname_prefix="/public_housing/",
-)
+app = Dash(__name__,
+           external_stylesheets=[
+           {'src': 'https://cdn.tailwindcss.com'},
+           dbc.themes.BOOTSTRAP
+           ],
+    requests_pathname_prefix="/public_housing/")
 
 # Chart parameters
 towns = df.select("town").unique().to_series().to_list()
@@ -180,22 +169,26 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     """Filter Polars DataFrame for Viz, based on inputs"""
 
     # Using Pandas and converting it to Polars, as my pl.read_json has issues
-    df = pl.DataFrame(json.loads(data_json))
+    df = pl.DataFrame(json.loads(data_json)).lazy()
     # selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(month):]]
 
     # Filter for the selected months first
     # df = df.filter(pl.col('month').is_in(selected_mths))
 
-    df = df.with_columns(
+    df = df.with_columns([
         pl.col("lease")
-        .str.split_exact("y", 1)
-        .struct.rename_fields(["year_count", "mth_count"])
-        .alias("fields")
-    ).unnest("fields").with_columns(
-        pl.col('year_count').cast(pl.Int32))
+            .str.split_exact("y", 1)
+            .struct.rename_fields(["year_count", "mth_count"])
+            .alias("fields")
+    ]).unnest("fields").with_columns([
+        pl.col('year_count').cast(pl.Int32)
+    ])
+
+# Conditional flags
+    flags = []
 
     if max_lease:
-        df = df.with_columns(
+        flags.append(
             pl.when(pl.col("year_count") <= int(max_lease))
             .then(True)
             .otherwise(False)
@@ -203,59 +196,62 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
         )
 
     if min_lease:
-        df = df.with_columns(
+        flags.append(
             pl.when(pl.col("year_count") >= int(min_lease))
             .then(True)
             .otherwise(False)
             .alias("min_lease_flag")
         )
 
-    df = df.with_columns(
-        pl.when(
-            # pl.col("month").is_in(selected_mths),
-            pl.col("flat").is_in(flat)
-        )
+    flags.append(
+        pl.when(pl.col("flat").is_in(flat))
         .then(True)
         .otherwise(False)
         .alias("flat_flag")
     )
 
     if street:
-        df = df.with_columns(
+        flags.append(
             pl.when(pl.col("street").str.contains(street.upper()))
             .then(True)
             .otherwise(False)
             .alias("street_flag")
         )
 
+# Filter and rounding for price and area columns
     price_type = convert_price_area(price_type, area_type)
 
-    # Filter for Sq Ft or Sq M columns
     if area_type == 'area_sqft':
-        df = df.with_columns(
+        rounding_columns = [
             pl.col('price').round(2),
             pl.col('price_sqft').round(2),
-            pl.col('area_sqft').round(2),
-        ).drop("price_sqm", 'area_sqm')
+            pl.col('area_sqft').round(2)
+        ]
+        drop_columns = ["price_sqm", 'area_sqm']
     else:
-        df = df.with_columns(
+        rounding_columns = [
             pl.col('price').round(2),
             pl.col('price_sqm').round(2),
             pl.col('area_sqm').round(2)
-        ).drop('price_sqft', "area_sqft")
+        ]
+        drop_columns = ['price_sqft', "area_sqft"]
 
+# Add rounding and column dropping
+    df = df.with_columns(rounding_columns).drop(drop_columns)
+
+# Conditional flags for town, price, and area
     if town != "All":
-        df = df.with_columns(
+        flags.append(
             pl.when(pl.col("town") == town)
             .then(True)
             .otherwise(False)
             .alias("town_flag")
         )
     else:
-        df = df.with_columns(town_flag = True)
+        flags.append(pl.lit(True).alias("town_flag"))
 
     if max_price:
-        df = df.with_columns(
+        flags.append(
             pl.when(pl.col(price_type) <= max_price)
             .then(True)
             .otherwise(False)
@@ -263,7 +259,7 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
         )
 
     if min_price:
-        df = df.with_columns(
+        flags.append(
             pl.when(pl.col(price_type) >= min_price)
             .then(True)
             .otherwise(False)
@@ -271,20 +267,24 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
         )
 
     if max_area:
-        df = df.with_columns(
-            pl.when(pl.col(area_type) <= min_area)
+        flags.append(
+            pl.when(pl.col(area_type) <= max_area)
             .then(True)
             .otherwise(False)
             .alias("max_area_flag")
         )
 
     if min_area:
-        df = df.with_columns(
+        flags.append(
             pl.when(pl.col(area_type) >= min_area)
             .then(True)
             .otherwise(False)
             .alias("min_area_flag")
         )
+
+# Apply all conditional flags in a single with_columns call
+    df = df.with_columns(flags)
+    df = df.collect()
 
     return df
 
@@ -466,7 +466,7 @@ app.layout = html.Div([
                           "width": "14%", "padding": "5px"},
                 ),
                 html.Div([
-                    html.Label("Min [ Price | Price / Area ]"),
+                    html.Label("Min Price | Price / Area"),
                     dcc.Input(type="number",
                               placeholder="Add No.",
                               style={"display": "inline-block",
@@ -477,7 +477,7 @@ app.layout = html.Div([
                           "width": "15%", "padding": "5px"},
                 ),
                 html.Div([
-                    html.Label("Max [ Price | Price / Area ]"),
+                    html.Label("Max Price | Price / Area"),
                     dcc.Input(type="number",
                               style={"display": "inline-block",
                                      "border-color": "#E5E4E2",
@@ -545,7 +545,6 @@ app.layout = html.Div([
                 ], style={
                     "height": 450,
                     "width": 1200,
-                    # "padding": "5px",
                     "display": "inline-block",
                 },
                 )], type="circle", color="rgb(220, 38, 38)"),
@@ -615,13 +614,9 @@ def update_table(data, area_type, price_type):
     df = pl.DataFrame(data).drop("year_count", "mth_count")
     if df is not None:
         flags = [i for i in df.columns if 'flag' in i]
-        df = df.filter(
-                ~pl.any_horizontal(pl.col('*') == False)
-            ).drop(flags)
-
+        df = df.filter(~pl.any_horizontal(pl.col('*') == False)).drop(flags)
         output = df.to_dicts()
         columnDefs=grid_format(df)
-
     return output, columnDefs
 
 
@@ -677,7 +672,6 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
 def update_g0(data, town, area_type, price_type, max_lease, min_lease):
     """ Scatter Plot of Price to Price / Sq Area """
     fig = go.Figure()
-
     df = pl.DataFrame(data)
 
     if df is not None:
@@ -784,7 +778,6 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
         )
     return fig
 
-
 @callback(
     Output("collapse", "is_open"),
     [Input("collapse-button", "n_clicks")],
@@ -792,14 +785,12 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
 def toggle_collapse(n, is_open):
     return not is_open if n else is_open
 
-
 @callback(
     Output("caveats", "is_open"),
     [Input("collapse-caveats", "n_clicks")],
     [State("caveats", "is_open")])
 def toggle_caveat(n, is_open):
     return not is_open if n else is_open
-
 
 if __name__ == "__main__":
     app.run_server(debug=True)
