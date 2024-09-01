@@ -41,19 +41,23 @@ def fetch_data_for_period(period):
     }
     response = requests.get(full_url, params=params)
     if response.status_code == 200:
-        return pl.DataFrame(response.json().get("result").get("records"))
+        table_result = pl.DataFrame(response.json().get("result").get("records"))
+        if table_result.columns == []:
+            return pl.DataFrame(schema=df_cols)  # Return empty DataFrame on error
+        else:
+            return table_result
     else:
-        return pl.DataFrame()  # Return empty DataFrame on error
+        return pl.DataFrame(schema=df_cols)  # Return empty DataFrame on error
 
 # Use ThreadPoolExecutor to fetch data in parallel
-df = pl.DataFrame()
+df = pl.DataFrame(schema=df_cols)
 with ThreadPoolExecutor(max_workers=4) as executor:
     futures = {executor.submit(
         fetch_data_for_period, period): period for period in recent_periods}
 
     for future in as_completed(futures):
         mth_df = future.result()
-        df = pl.concat([df, mth_df], how='vertical')
+        df = pl.concat([df, mth_df], how='vertical_relaxed')
 
 # Data Processing
 df.columns = ['month', 'town', 'flat', 'block', 'street', 'floor', 
