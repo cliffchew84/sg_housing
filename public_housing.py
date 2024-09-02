@@ -167,29 +167,14 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
               max_price, min_price, min_lease, max_lease, street,
               selected_mths, data_json):
     """Filter Polars DataFrame for Viz, based on inputs"""
-
-    # Using Pandas and converting it to Polars, as my pl.read_json has issues
     df = pl.DataFrame(json.loads(data_json)).lazy()
-    # selected_mths = [i.strftime("%Y-%m") for i in selected_mths[-int(month):]]
 
-    # Filter for the selected months first
-    # df = df.filter(pl.col('month').is_in(selected_mths))
-
-    df = df.with_columns([
-        pl.col("lease")
-            .str.split_exact("y", 1)
-            .struct.rename_fields(["year_count", "mth_count"])
-            .alias("fields")
-    ]).unnest("fields").with_columns([
-        pl.col('year_count').cast(pl.Int32)
-    ])
-
-# Conditional flags
+    # Conditional flags
     flags = []
 
     if max_lease:
         flags.append(
-            pl.when(pl.col("year_count") <= int(max_lease))
+            pl.when(pl.col("year_count") >= int(max_lease))
             .then(True)
             .otherwise(False)
             .alias("max_lease_flag")
@@ -197,7 +182,7 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
 
     if min_lease:
         flags.append(
-            pl.when(pl.col("year_count") >= int(min_lease))
+            pl.when(pl.col("year_count") <= int(min_lease))
             .then(True)
             .otherwise(False)
             .alias("min_lease_flag")
@@ -218,28 +203,25 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
             .alias("street_flag")
         )
 
-# Filter and rounding for price and area columns
+    # Filter and rounding for price and area columns
     price_type = convert_price_area(price_type, area_type)
 
     if area_type == 'area_sqft':
-        rounding_columns = [
+        rd_col = [
             pl.col('price').round(2),
             pl.col('price_sqft').round(2),
             pl.col('area_sqft').round(2)
         ]
         drop_columns = ["price_sqm", 'area_sqm']
     else:
-        rounding_columns = [
+        rd_col = [
             pl.col('price').round(2),
             pl.col('price_sqm').round(2),
             pl.col('area_sqm').round(2)
         ]
         drop_columns = ['price_sqft', "area_sqft"]
 
-# Add rounding and column dropping
-    df = df.with_columns(rounding_columns).drop(drop_columns)
-
-# Conditional flags for town, price, and area
+    # Conditional flags for town, price, and area
     if town != "All":
         flags.append(
             pl.when(pl.col("town") == town)
@@ -282,11 +264,12 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
             .alias("min_area_flag")
         )
 
-# Apply all conditional flags in a single with_columns call
-    df = df.with_columns(flags)
-    df = df.collect()
+    df = df.with_columns(
+        pl.col("lease").str.split("y").list.get(0).cast(
+            pl.Int32).alias('year_count')
+    )
 
-    return df
+    return df.with_columns(rd_col + flags).drop(drop_columns).collect()
 
 app.layout = html.Div([
     html.Div(
@@ -611,7 +594,7 @@ def filtered_data(n_clicks, town, area_type, price_type, max_lease, min_lease,
 def update_table(data, area_type, price_type):
     """ Table output to show all searched transactions """
     output = [{}]
-    df = pl.DataFrame(data).drop("year_count", "mth_count")
+    df = pl.DataFrame(data).drop("year_count")
     if df is not None:
         flags = [i for i in df.columns if 'flag' in i]
         df = df.filter(~pl.any_horizontal(pl.col('*') == False)).drop(flags)
