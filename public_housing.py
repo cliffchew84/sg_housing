@@ -172,6 +172,11 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
     # Conditional flags
     flags = []
 
+    df = df.with_columns(
+        pl.col("lease").str.split("y").list.get(0).cast(
+            pl.Int32).alias('year_count')
+    )
+
     if max_lease:
         flags.append(
             pl.when(pl.col("year_count") >= int(max_lease))
@@ -203,24 +208,6 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
             .alias("street_flag")
         )
 
-    # Filter and rounding for price and area columns
-    price_type = convert_price_area(price_type, area_type)
-
-    if area_type == 'area_sqft':
-        rd_col = [
-            pl.col('price').round(2),
-            pl.col('price_sqft').round(2),
-            pl.col('area_sqft').round(2)
-        ]
-        drop_columns = ["price_sqm", 'area_sqm']
-    else:
-        rd_col = [
-            pl.col('price').round(2),
-            pl.col('price_sqm').round(2),
-            pl.col('area_sqm').round(2)
-        ]
-        drop_columns = ['price_sqft', "area_sqft"]
-
     # Conditional flags for town, price, and area
     if town != "All":
         flags.append(
@@ -229,8 +216,6 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
             .otherwise(False)
             .alias("town_flag")
         )
-    else:
-        flags.append(pl.lit(True).alias("town_flag"))
 
     if max_price:
         flags.append(
@@ -264,10 +249,23 @@ def df_filter(month, town, flat, area_type, max_area, min_area, price_type,
             .alias("min_area_flag")
         )
 
-    df = df.with_columns(
-        pl.col("lease").str.split("y").list.get(0).cast(
-            pl.Int32).alias('year_count')
-    )
+    # Filter and rounding for price and area columns
+    price_type = convert_price_area(price_type, area_type)
+
+    if area_type == 'area_sqft':
+        rd_col = [
+            pl.col('price').round(2),
+            pl.col('price_sqft').round(2),
+            pl.col('area_sqft').round(2)
+        ]
+        drop_columns = ["price_sqm", 'area_sqm']
+    else:
+        rd_col = [
+            pl.col('price').round(2),
+            pl.col('price_sqm').round(2),
+            pl.col('area_sqm').round(2)
+        ]
+        drop_columns = ['price_sqft', "area_sqft"]
 
     return df.with_columns(rd_col + flags).drop(drop_columns).collect()
 
@@ -613,6 +611,7 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
     flags = [i for i in df.columns if 'flag' in i]
     df = df.filter(~pl.any_horizontal(pl.col('*') == False)).drop(flags)
 
+    text = "<b><< YOUR SEARCH HAS NO RESULTS >></b>"
     records = df.shape[0]
     if records > 0:
         area_min = min(df.select(area_type).to_series())
@@ -643,8 +642,6 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
             text += f" | <b>Lease =< </b> {max_lease:,}"
 
         text += f" | <b>Total records</b>: {records:,}"
-    else:
-        text = "<b><< YOUR SEARCH HAS NO RESULTS >></b>"
 
     return dcc.Markdown(text, dangerously_allow_html=True)
 
@@ -670,7 +667,7 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
 
         fig.add_trace(
             go.Scattergl(
-                y=non_df.select('price').to_series(),  # unchanged
+                y=non_df.select('price').to_series(),
                 x=non_df.select(price_label).to_series(),
                 mode='markers',
                 hoverinfo='skip',
@@ -679,7 +676,7 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
             ))
         fig.add_trace(
             go.Scattergl(
-                y=df.select('price').to_series(),  # unchanged
+                y=df.select('price').to_series(),
                 x=df.select(price_label).to_series(),
                 customdata=customdata_set,
                 hovertemplate='<i>Price:</i> %{y:$,}<br>' +
