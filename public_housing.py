@@ -5,7 +5,6 @@ from datetime import datetime, date
 import plotly.graph_objects as go
 import dash_ag_grid as dag
 import polars as pl
-import numpy as np
 import requests
 import json
 
