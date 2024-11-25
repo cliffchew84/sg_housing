@@ -574,6 +574,19 @@ wheels = [
 ]
 
 [[package]]
+name = "polars-lts-cpu"
+version = "1.14.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/32/46639d6713b316fe78f655860f3c6e4fb0eb307865a78c840e70b918b19a/polars_lts_cpu-1.14.0.tar.gz", hash = "sha256:32638cb45bb9b66efc981f203f43ff4510335348b144f61ac0357b695e43f04e", size = 4147533 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c3/51/fcbe69627753434a11d358f66c35edb5bf830c2ae753a948ffb4c1477eae/polars_lts_cpu-1.14.0-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:919522d2175f2090b707bb332b966a23207f8d8ef96e3614008997043fda8f62", size = 33818032 },
+    { url = "https://files.pythonhosted.org/packages/97/97/4a050ea53765fb611c3f81a267569069b38550ad550a1765c25ffbbb0495/polars_lts_cpu-1.14.0-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:30c4e8e177caffc677767885982eff51617d59ae8c3e1e36d6fdd8032479d5f8", size = 30178247 },
+    { url = "https://files.pythonhosted.org/packages/4f/66/0d50766ab45ac0c54d7231461e06860f6b7ad5de7df7d5c8d4cae5e0d935/polars_lts_cpu-1.14.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4c164231650450ecf0301a5491bfaa20fa44ac052d06596952af9f36f13f323c", size = 35110340 },
+    { url = "https://files.pythonhosted.org/packages/d3/6f/9b86dd589079c5d2b467cfd1716ca2618058fcdcef276b2da45f297232a7/polars_lts_cpu-1.14.0-cp39-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:c719921984211d0b83cd1055e45b03b09e9f3f7b9dda742a916bbc09021cbf1c", size = 31893769 },
+    { url = "https://files.pythonhosted.org/packages/96/16/5b364f5002206c28b5f805c5243f636448415be0aecac46c0634d9967147/polars_lts_cpu-1.14.0-cp39-abi3-win_amd64.whl", hash = "sha256:b49dc3f9992b4986566a5cf7dc208ac02c30eac095a955abb65ee34959b23ea7", size = 35339593 },
+]
+
+[[package]]
 name = "pyarrow"
 version = "18.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -955,6 +968,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "plotly" },
+    { name = "polars-lts-cpu" },
     { name = "pyarrow" },
     { name = "python-dotenv" },
     { name = "uvicorn" },
@@ -971,6 +985,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.1.3" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "plotly", specifier = ">=5.24.1" },
+    { name = "polars-lts-cpu", specifier = ">=1.14.0" },
     { name = "pyarrow", specifier = ">=18.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "uvicorn", specifier = ">=0.32.0" },

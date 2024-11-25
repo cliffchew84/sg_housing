@@ -17,4 +17,5 @@ dependencies = [
     "pyarrow>=18.0.0",
     "uvicorn>=0.32.0",
     "python-dotenv>=1.0.1",
+    "polars-lts-cpu>=1.14.0",
 ]
