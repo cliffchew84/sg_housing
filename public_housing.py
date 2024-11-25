@@ -643,6 +643,7 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
 
         text += f" | <b>Total records</b>: {records:,}"
 
+    print(text)
     return dcc.Markdown(text, dangerously_allow_html=True)
 
 
