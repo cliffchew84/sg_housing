@@ -1,0 +1,20 @@
+[project]
+name = "uv-property"
+version = "0.1.0"
+description = "This is my SG Housing Dashboard environment"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "dash-ag-grid>=31.2.0",
+    "dash-bootstrap-components>=1.6.0",
+    "dash>=2.18.2",
+    "fastapi-blog>=0.6.0",
+    "fastapi>=0.115.4",
+    "mongo>=0.2.0",
+    "numpy>=2.1.3",
+    "pandas>=2.2.3",
+    "plotly>=5.24.1",
+    "pyarrow>=18.0.0",
+    "uvicorn>=0.32.0",
+    "python-dotenv>=1.0.1",
+]
