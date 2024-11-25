@@ -1,6 +1,5 @@
 import geopy.distance
 import polars as pl
-import numpy as np
 
 
 def create_mdb_query_w_df_cols(df: pl.DataFrame):
@@ -36,7 +35,7 @@ def table_select_from_pt(df: pl.DataFrame,
     """
     
     # TODO - Fix to fully polars dataframe 
-    df_lat = df[.select('LATITUDE').to_series().to_list()
+    df_lat = df.select('LATITUDE').to_series().to_list()
     df_long = df.select('LONGITUDE').to_series().to_list()
 
     df['dist'] = [geopy.distance.geodesic(

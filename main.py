@@ -1,6 +1,6 @@
-import requests
+import uvicorn
 import jinja2
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request 
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -21,7 +21,7 @@ app = add_blog_to_fastapi(app, jinja2_loader=django_style_jinja2_loader)
 
 app.mount('/static', StaticFiles(directory='static'), name='static')
 app.mount("/public_housing", WSGIMiddleware(public_housing.server))
-app.mount("/private_housing", WSGIMiddleware(private_housing.server))
+# app.mount("/private_housing", WSGIMiddleware(private_housing.server))
 # app.mount("/location_map", WSGIMiddleware(location_map.server))
 templates = Jinja2Templates(directory='templates')
 
