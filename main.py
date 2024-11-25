@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.wsgi import WSGIMiddleware
 from fastapi_blog import add_blog_to_fastapi
-from public_housing import app as public_housing
+# from public_housing import app as public_housing
 from private_housing import app as private_housing
 import public_dash as pud 
 # from location_map import app as location_map
