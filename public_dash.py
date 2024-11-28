@@ -140,7 +140,7 @@ def create_home_price_dist(df=df, note=note):
             x=[None],
             y=[None],
             mode="markers",
-            name="Median Price >=450K, <500K",
+            name="Median Price <500K",
             marker=dict(size=7, color="#06C", symbol="circle"),
         )
     )
