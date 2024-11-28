@@ -1,13 +1,13 @@
-import uvicorn
 import jinja2
-from fastapi import FastAPI, Request 
-from fastapi.responses import RedirectResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
+import uvicorn
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from fastapi.middleware.wsgi import WSGIMiddleware
-from fastapi_blog import add_blog_to_fastapi
+from fastapi.responses import RedirectResponse, HTMLResponse
 from public_housing import app as public_housing
-import public_dash as pud 
+from fastapi_blog import add_blog_to_fastapi
+import public_dash as pud
 # from private_housing import app as private_housing
 # from location_map import app as location_map
 
