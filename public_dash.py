@@ -27,7 +27,10 @@ df = pl.DataFrame(list(db_nlb["hdb_hist"].find({}, {"_id": 0})))
 # Update months in the latest year - Currently this is 2024
 current_date = datetime.today()
 period_range = pl.date_range(
-    datetime(year=2024, month=1, day=1), current_date, interval="1mo", eager=True
+    datetime(year=2024, month=1, day=1),
+    current_date,
+    interval="1mo",
+    eager=True,
 ).to_list()
 mths_2024 = [str(i)[:7] for i in period_range]
 
@@ -36,6 +39,7 @@ param_fields = ",".join(df_cols)
 base_url = "https://data.gov.sg/api/action/datastore_search?resource_id="
 ext_url = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc"
 full_url = base_url + ext_url
+
 
 def fetch_hdb_data(period):
     params = {
@@ -46,7 +50,9 @@ def fetch_hdb_data(period):
     result = pl.DataFrame(schema=df_cols)
     response = requests.get(full_url, params=params)
     if response.status_code == 200:
-        table_result = pl.DataFrame(response.json().get("result").get("records"))
+        table_result = pl.DataFrame(
+            response.json().get("result").get("records")
+        )
         if table_result.columns != []:
             result = table_result
     return result
@@ -54,7 +60,9 @@ def fetch_hdb_data(period):
 
 # Use ThreadPoolExecutor to fetch data in parallel
 with ThreadPoolExecutor(max_workers=4) as executor:
-    futures = {executor.submit(fetch_hdb_data, period): period for period in mths_2024}
+    futures = {
+        executor.submit(fetch_hdb_data, period): period for period in mths_2024
+    }
 
     for future in as_completed(futures):
         mth_df = future.result()
@@ -66,8 +74,9 @@ labels = ["0-300k", "300-500k", "500-800k", "800k-1m", ">=1m"]
 
 df = (
     df.filter("month" >= "2020-01-01")
-    .with_columns(pl.lit(1).alias("count"), 
-                  pl.col("resale_price").cast(pl.Float64))
+    .with_columns(
+        pl.lit(1).alias("count"), pl.col("resale_price").cast(pl.Float64)
+    )
     .rename({"resale_price": "price"})
     .with_columns(
         pl.col("price")
@@ -89,7 +98,10 @@ price_grps_dict[price_grps[4]] = "#C9190B"
 chart_width, chart_height = 1000, 600
 legend = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
 period_list = (
-    df.select(pl.col("month")).unique(maintain_order=True).to_series().to_list()
+    df.select(pl.col("month"))
+    .unique(maintain_order=True)
+    .to_series()
+    .to_list()
 )
 today = str(datetime.today().date())
 note = f"Updated on {today}"
@@ -99,14 +111,17 @@ note = f"Updated on {today}"
 def create_home_price_dist(df=df, note=note):
     p_count = df.group_by("month").agg(pl.col("price").median())
     p_count = p_count.with_columns(
-        pl.when(pl.col("price") >= 500000).then(1).otherwise(0).alias("price_bar")
+        pl.when(pl.col("price") >= 500000)
+        .then(1)
+        .otherwise(0)
+        .alias("price_bar")
     )
 
     high_prices = (
-        p_count.filter(pl.col("price_bar") == 1).select("month").to_series().to_list()
-    )
-    low_prices = (
-        p_count.filter(pl.col("price_bar") == 0).select("month").to_series().to_list()
+        p_count.filter(pl.col("price_bar") == 1)
+        .select("month")
+        .to_series()
+        .to_list()
     )
 
     fig = go.Figure()
@@ -169,17 +184,28 @@ def create_home_price_dist(df=df, note=note):
 def create_mil_bar_chart(df=df, note=note):
     mil = (
         df.with_columns(
-            pl.when(pl.col("price") >= 1000000).then(1).otherwise(0).alias("mil")
+            pl.when(pl.col("price") >= 1000000)
+            .then(1)
+            .otherwise(0)
+            .alias("mil")
         )
         .group_by(["month", "mil"])
         .agg(pl.col("town").count())
         .sort("month")
-        .pivot(on="mil", index="month", values="town", aggregate_function="sum")
+        .pivot(
+            on="mil", index="month", values="town", aggregate_function="sum"
+        )
         .fill_null(0)
         .with_columns((pl.col("1") + pl.col("0")).alias("All"))
-        .with_columns(((pl.col("1") / pl.col("All")) * 100).round(2).alias("prop"))
+        .with_columns(
+            ((pl.col("1") / pl.col("All")) * 100).round(2).alias("prop")
+        )
         .rename(
-            {"1": "million $ Trans", "All": "Total Trans", "prop": "% million Trans"}
+            {
+                "1": "million $ Trans",
+                "All": "Total Trans",
+                "prop": "% million Trans",
+            }
         )
     )
 
@@ -216,7 +242,8 @@ def create_mil_bar_chart(df=df, note=note):
     )
 
     fig.update_yaxes(
-        title_text="Million Dollar Homes / Total Home Sales (%)", secondary_y=False
+        title_text="Million Dollar Homes / Total Home Sales (%)",
+        secondary_y=False,
     )
     fig.update_yaxes(title_text="Total Sales", secondary_y=True)
 
@@ -267,7 +294,9 @@ def create_price_grp_percent(df=df, note=note):
 
     for_plots.columns = ["month", "price_grp", "count", "total"]
     for_plots = for_plots.with_columns(
-        (100 * pl.col("count") / pl.col("total")).round(1).alias("percent_count")
+        (100 * pl.col("count") / pl.col("total"))
+        .round(1)
+        .alias("percent_count")
     )
 
     fig = go.Figure()
