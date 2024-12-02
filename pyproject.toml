@@ -18,3 +18,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "polars-lts-cpu>=1.14.0",
 ]
+
+[tool.ruff]
+exclude = ["venv", ".mypy_cache", ".pytest_cache", "build", "dist"]
+line-length = 79
