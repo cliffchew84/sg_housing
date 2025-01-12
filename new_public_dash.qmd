@@ -1,0 +1,300 @@
+---
+title: "SG Public Housing Dash"
+format: 
+    dashboard:
+      scrolling: true
+execute:
+    cache: true
+    echo: false
+server: shiny
+theme: sandstone
+---
+
+
+```{python}
+import os
+import json
+import requests
+import polars as pl
+import public_dash as pud 
+from datetime import datetime
+from pymongo import mongo_client
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
+# MongoDB credentials
+MONGO_PASSWORD = os.environ["mongo_pw"]
+base_url = "mongodb+srv://cliffchew84:"
+end_url = "cliff-nlb.t0whddv.mongodb.net/?retryWrites=true&w=majority"
+mongo_url = f"{base_url}{MONGO_PASSWORD}@{end_url}"
+
+# Update months in the latest year - Currently this is 2024
+db = mongo_client.MongoClient(mongo_url, serverSelectionTimeoutMS=5000)
+db_nlb = db["nlb"]
+df = pl.DataFrame(list(db_nlb["hdb_hist"].find({}, {"_id": 0})))
+
+# Update months in the latest year - Currently this is 2024
+current_date = datetime.today()
+period_range = pl.date_range(
+    datetime(year=2024, month=1, day=1),
+    current_date,
+    interval="1mo",
+    eager=True,
+).to_list()
+mths_2024 = [str(i)[:7] for i in period_range]
+
+df_cols = ["month", "town", "resale_price"]
+param_fields = ",".join(df_cols)
+base_url = "https://data.gov.sg/api/action/datastore_search?resource_id="
+ext_url = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc"
+full_url = base_url + ext_url
+
+
+def fetch_hdb_data(period):
+    params = {
+        "fields": param_fields,
+        "filters": json.dumps({"month": period}),
+        "limit": 10000,
+    }
+    result = pl.DataFrame(schema=df_cols)
+    response = requests.get(full_url, params=params)
+    if response.status_code == 200:
+        table_result = pl.DataFrame(
+            response.json().get("result").get("records")
+        )
+        if table_result.columns != []:
+            result = table_result
+    return result
+
+
+# Use ThreadPoolExecutor to fetch data in parallel
+with ThreadPoolExecutor(max_workers=4) as executor:
+    futures = {
+        executor.submit(fetch_hdb_data, period): period for period in mths_2024
+    }
+
+    for future in as_completed(futures):
+        mth_df = future.result()
+        df = pl.concat([df, mth_df], how="vertical_relaxed")
+
+# Data Processing for creating charts
+bins = [300000, 500000, 800000, 1000000]
+labels = ["0-300k", "300-500k", "500-800k", "800k-1m", ">=1m"]
+
+df = (
+    df.filter("month" >= "2020-01-01")
+    .with_columns(
+        pl.lit(1).alias("count"), pl.col("resale_price").cast(pl.Float64)
+    )
+    .rename({"resale_price": "price"})
+    .with_columns(
+        pl.col("price")
+        .cut(breaks=bins, labels=labels, left_closed=True)
+        .alias("price_grp")
+    )
+)
+
+price_grps = df["price_grp"].unique().to_list()
+price_grps.sort()
+
+price_grps_dict = dict()
+price_grps_dict[price_grps[0]] = "#8BC1F7"
+price_grps_dict[price_grps[1]] = "#06C"
+price_grps_dict[price_grps[2]] = "#4CB140"
+price_grps_dict[price_grps[3]] = "#F0AB00"
+price_grps_dict[price_grps[4]] = "#C9190B"
+
+chart_width, chart_height = 1000, 600
+legend = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+period_list = (
+    df.select(pl.col("month"))
+    .unique(maintain_order=True)
+    .to_series()
+    .to_list()
+)
+today = str(datetime.today().date())
+note = f"Updated on {today}"
+```
+
+
+```{python}
+m_plot = df.with_columns(
+    pl.when(pl.col("price")>=1000000)
+    .then(1)
+    .otherwise(0)
+    .alias('mil')
+).group_by('month').agg(
+    pl.col("town").count(), pl.col('mil').sum()).sort("month")
+m_plot = m_plot.with_columns(
+    (100 * pl.col("mil") / pl.col("town")
+     ).alias("p_mil").round(2)).filter(
+    pl.col("month")>="2012-12-01")
+
+from plotly.subplots import make_subplots
+fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+fig = fig.add_trace(go.Scatter(
+    x=m_plot.select('month').to_series().to_list(),
+    y=m_plot.select('p_mil').to_series().to_list(),
+    name="% of Million $ Sales"), secondary_y=False)
+
+fig = fig.add_trace(go.Bar(
+    x=m_plot.select('month').to_series().to_list(),
+    y=m_plot.select('town').to_series().to_list(),
+    opacity=.4,
+    name="Million $ Sales"),
+secondary_y=True)
+
+fig = fig.update_layout(
+    width=chart_width, height=chart_height,
+    yaxis=dict(
+        title='% of Million $ Sales',
+    ),
+    yaxis2=dict(
+        title='Million $ Sales',
+        overlaying='y',
+        side='right'
+    ),
+    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
+)
+
+fig = fig.add_hline(y=1.5, line_width=2, line_dash="dash", line_color="black")
+fig = fig.add_hline(y=3, line_width=2, line_dash="dash", line_color="red")
+
+fig = fig.add_vline(x="2022-09", line_width=1, line_dash="dash", line_color="black")
+fig = fig.add_vline(x="2023-02", line_width=1, line_dash="dash", line_color="darkgreen")
+fig = fig.add_vline(x="2023-04", line_width=1, line_dash="dash", line_color="darkblue")
+
+
+fig = fig.add_annotation(x="2022-05", y=3,
+                   text="BSD<br>2022-09",
+                   showarrow=False,
+                   bgcolor="white",
+                   borderpad=2)
+
+fig = fig.add_annotation(x="2023-06", y=3,
+                   text="ABSD 1<br>2023-02",
+                   showarrow=False,
+                   bgcolor="white",
+                   borderpad=2)
+
+fig = fig.add_annotation(x="2023-09", y=0.5,
+                   text="ABSD 2<br>2023-04",
+                   showarrow=False,
+                   bgcolor="white",
+                   borderpad=2)
+```
+
+## Row {height=10%}
+
+```{python}
+#| content: valuebox
+#| title: Million Dollar Homes
+dict(
+    icon = "house-fill",
+    color = "info",
+    value = f'{df.filter(pl.col("price")>=1000000).shape[0]:,}'
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: Median Home Prices
+dict(
+    icon = "chat",
+    color = "info",
+    value = 200 
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: Median Home Prices
+dict(
+    icon = "chat",
+    color = "info",
+    value = 200 
+)
+```
+
+## Row {height=80%}
+```{python}
+def create_home_price_dist(df=df, note=note):
+    p_count = df.group_by("month").agg(pl.col("price").median())
+    p_count = p_count.with_columns(
+        pl.when(pl.col("price") >= 500000)
+        .then(1)
+        .otherwise(0)
+        .alias("price_bar")
+    )
+
+    high_prices = (
+        p_count.filter(pl.col("price_bar") == 1)
+        .select("month")
+        .to_series()
+        .to_list()
+    )
+
+    fig = go.Figure()
+    for p in period_list:
+        tmp = df.filter(pl.col("month") == p)
+        if p in high_prices:
+            fig.add_trace(
+                go.Box(
+                    y=tmp.select("price").to_series(),
+                    name=str(p),
+                    boxpoints="outliers",
+                    marker_color="#C9190B",
+                    line_color="#C9190B",
+                    showlegend=False,
+                )
+            )
+        else:
+            fig.add_trace(
+                go.Box(
+                    y=tmp.select("price").to_series(),
+                    name=str(p),
+                    boxpoints="outliers",
+                    marker_color="#06C",
+                    line_color="#06C",
+                    showlegend=False,
+                )
+            )
+
+    fig.add_trace(
+        go.Scatter(
+            x=[None],
+            y=[None],
+            mode="markers",
+            name="Median Price <500K",
+            marker=dict(size=7, color="#06C", symbol="circle"),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[None],
+            y=[None],
+            mode="markers",
+            name="Median Price > 500K",
+            marker=dict(size=7, color="#C9190B", symbol="circle"),
+        )
+    )
+
+    fig.update_layout(
+        title="Public Home Price Distributions",
+        yaxis={"title": "Prices (SGD)"},
+        xaxis={"title": "Months"},
+        width=chart_width,
+        height=chart_height,
+        legend=legend,
+    )
+    return fig
+
+create_home_price_dist(df=df, note=note)
+```
+
+```{python}
+fig
+```

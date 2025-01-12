@@ -27,7 +27,7 @@ current_mth = datetime.now().date().strftime("%Y-%m")
 periods = [
     str(i)[:7]
     for i in pl.date_range(
-        datetime(2024, 1, 1), datetime.now(), interval="1mo", eager=True
+        datetime(2024, 3, 1), datetime.now(), interval="1mo", eager=True
     ).to_list()
 ]
 
@@ -927,7 +927,9 @@ def update_table(data, area_type, price_type):
     df = pl.DataFrame(data).drop("year_count")
     if df is not None:
         flags = [i for i in df.columns if "flag" in i]
-        df = df.filter(~pl.any_horizontal(~pl.col("*"))).drop(flags)
+        for flag in flags:
+            df = df.filter(pl.col(flag))
+        df = df.drop(flags)
         output = df.to_dicts()
         columnDefs = grid_format(df)
     return output, columnDefs
@@ -943,7 +945,9 @@ def update_text(data, town, area_type, price_type, max_lease, min_lease):
 
     df = pl.DataFrame(data)
     flags = [i for i in df.columns if "flag" in i]
-    df = df.filter(~pl.any_horizontal(~pl.col("*"))).drop(flags)
+    for flag in flags:
+        df = df.filter(pl.col(flag))
+    df = df.drop(flags)
 
     text = "<b><< YOUR SEARCH HAS NO RESULTS >></b>"
     records = df.shape[0]
@@ -989,8 +993,14 @@ def update_g0(data, town, area_type, price_type, max_lease, min_lease):
 
     if df is not None:
         flags = [i for i in df.columns if "flag" in i]
-        non_df = df.filter(pl.any_horizontal(~pl.col("*"))).drop(flags)
-        df = df.filter(~pl.any_horizontal(~pl.col("*"))).drop(flags)
+
+        non_df = pl.DataFrame()
+        for flag in flags:
+            non_df = pl.concat([non_df, df.filter(~pl.col(flag))])
+
+        for flag in flags:
+            df = df.filter(pl.col(flag))
+        df = df.drop(flags)
 
         price_type = convert_price_area(price_type, area_type)
         price_label = "price_sqm" if area_type == "area_sqm" else "price_sqft"
@@ -1053,8 +1063,13 @@ def update_g2(data, town, area_type, price_type, max_lease, min_lease):
 
     if df is not None:
         flags = [i for i in df.columns if "flag" in i]
-        non_df = df.filter(pl.any_horizontal(~pl.col("*"))).drop(flags)
-        df = df.filter(~pl.any_horizontal(~pl.col("*"))).drop(flags)
+        non_df = pl.DataFrame()
+        for flag in flags:
+            non_df = pl.concat([non_df, df.filter(~pl.col(flag))])
+
+        for flag in flags:
+            df = df.filter(pl.col(flag))
+        df = df.drop(flags)
 
         # Transform user inputs into table usable columns
         price_type = convert_price_area(price_type, area_type)
