@@ -11,6 +11,7 @@ import json
 table_cols = [
     "month",
     "town",
+    "blk",
     "flat",
     "street",
     "floor",
@@ -37,6 +38,7 @@ recent_periods = periods[-7:] if datetime.now().day <= 10 else periods[-6:]
 # Define columns and URL
 df_cols = [
     "month",
+    "blk",
     "town",
     "flat_type",
     "block",
@@ -86,6 +88,7 @@ with ThreadPoolExecutor(max_workers=4) as executor:
 # Data Processing
 df.columns = [
     "month",
+    "blk",
     "town",
     "flat",
     "block",
