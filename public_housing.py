@@ -8,20 +8,6 @@ import polars as pl
 import requests
 import json
 
-table_cols = [
-    "month",
-    "town",
-    "flat",
-    "street_name",
-    "floor",
-    "lease",
-    "area_sqm",
-    "area_sqft",
-    "price_sqm",
-    "price_sqft",
-    "price",
-]
-
 # Get current month and recent periods
 current_mth = datetime.now().date().strftime("%Y-%m")
 periods = [
@@ -37,7 +23,7 @@ recent_periods = periods[-7:] if datetime.now().day <= 10 else periods[-6:]
 # Define columns and URL
 df_cols = [
     "month",
-    "blk",
+    "block",
     "town",
     "flat_type",
     "street_name",
@@ -86,10 +72,9 @@ with ThreadPoolExecutor(max_workers=4) as executor:
 # Data Processing
 df.columns = [
     "month",
-    "blk",
+    "block",
     "town",
     "flat",
-    "block",
     "street",
     "floor",
     "area_sqm",
@@ -119,7 +104,7 @@ df = (
                 / (pl.col("area_sqm").cast(pl.Float32) * 10.7639)
             ).alias("price_sqft"),
             ("BLK " + pl.col("block") + " " + pl.col("street")).alias(
-                "street_name"
+                "street"
             ),
             pl.col("lease_mths")
             .str.replace("s", "")
@@ -134,7 +119,19 @@ df = (
             pl.col("floor").str.replace(" TO ", "-").alias("floor"),
         ]
     )
-    .select(table_cols)
+    .select(
+        "month",
+        "town",
+        "flat",
+        "street",
+        "floor",
+        "lease",
+        "area_sqm",
+        "area_sqft",
+        "price_sqm",
+        "price_sqft",
+        "price",
+    )
 )
 
 print("Completed data extraction from data.gov.sg")
