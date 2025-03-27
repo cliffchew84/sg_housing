@@ -11,9 +11,8 @@ import json
 table_cols = [
     "month",
     "town",
-    "blk",
     "flat",
-    "street",
+    "street_name",
     "floor",
     "lease",
     "area_sqm",
@@ -41,7 +40,6 @@ df_cols = [
     "blk",
     "town",
     "flat_type",
-    "block",
     "street_name",
     "storey_range",
     "floor_area_sqm",
