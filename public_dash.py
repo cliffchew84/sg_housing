@@ -40,6 +40,9 @@ base_url = "https://data.gov.sg/api/action/datastore_search?resource_id="
 ext_url = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc"
 full_url = base_url + ext_url
 
+api_key = os.environ["OGP_API_KEY"]
+headers = {"x-api-key": api_key}
+
 
 def fetch_hdb_data(period):
     params = {
@@ -48,7 +51,7 @@ def fetch_hdb_data(period):
         "limit": 10000,
     }
     result = pl.DataFrame(schema=df_cols)
-    response = requests.get(full_url, params=params)
+    response = requests.get(full_url, params=params, headers=headers)
     if response.status_code == 200:
         table_result = pl.DataFrame(
             response.json().get("result").get("records")
@@ -59,7 +62,7 @@ def fetch_hdb_data(period):
 
 
 # Use ThreadPoolExecutor to fetch data in parallel
-with ThreadPoolExecutor(max_workers=4) as executor:
+with ThreadPoolExecutor(max_workers=2) as executor:
     futures = {
         executor.submit(fetch_hdb_data, period): period for period in mths_2024
     }
