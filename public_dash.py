@@ -19,27 +19,29 @@ base_url = "mongodb+srv://cliffchew84:"
 end_url = "cliff-nlb.t0whddv.mongodb.net/?retryWrites=true&w=majority"
 mongo_url = f"{base_url}{MONGO_PASSWORD}@{end_url}"
 
-# Update months in the latest year - Currently this is 2024
+# Update months in the latest year - Currently this is 2025-11
 db = mongo_client.MongoClient(mongo_url, serverSelectionTimeoutMS=5000)
 db_nlb = db["nlb"]
-df = pl.DataFrame(list(db_nlb["hdb_hist"].find({}, {"_id": 0})))
+df = pl.DataFrame(list(db_nlb["hdb_hist_v2"].find({}, {"_id": 0})))
 
-# Update months in the latest year - Currently this is 2024
 current_date = datetime.today()
 period_range = pl.date_range(
-    datetime(year=2024, month=1, day=1),
+    datetime(year=2025, month=12, day=1),
     current_date,
     interval="1mo",
     eager=True,
 ).to_list()
 mths_2024 = [str(i)[:7] for i in period_range]
 
+
+# Parameters for making API calls for data.gov.sg
 df_cols = ["month", "town", "resale_price"]
 param_fields = ",".join(df_cols)
 base_url = "https://data.gov.sg/api/action/datastore_search?resource_id="
 ext_url = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc"
 full_url = base_url + ext_url
 
+# New parameters for data.gov.sg
 api_key = os.environ["OGP_API_KEY"]
 headers = {"x-api-key": api_key}
 
